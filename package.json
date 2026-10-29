@@ -1,0 +1,28 @@
+{
+  "name": "voxel-shoot-tool",
+  "version": "1.0.0",
+  "description": "体素射击核玩工具（单文件离线版）",
+  "type": "module",
+  "scripts": {
+    "build": "node build.mjs",
+    "test": "node test/run-test.mjs",
+    "test:logic": "node test/logic-test.mjs",
+    "test:ae": "node test/ae-export.mjs",
+    "test:h5": "node test/h5-export.mjs",
+    "test:play": "node test/play.mjs",
+    "shots": "node test/shots.mjs"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Ppppan9/voxel-shoot-tool.git"
+  },
+  "license": "ISC",
+  "devDependencies": {
+    "esbuild": "^0.28.2",
+    "playwright-core": "^1.64.1",
+    "three": "^0.160.0"
+  },
+  "allowScripts": {
+    "esbuild@0.28.2": true
+  }
+}
