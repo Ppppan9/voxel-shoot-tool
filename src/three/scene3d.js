@@ -240,9 +240,9 @@ export function makeTrail(S) {
     m.name = name; return m;
   };
   // 尖(+Y球) ← 宽(-Y后)：细软锥 + 外晕
-  g.add(mk(0.0025, 0.032, 0.75, 'trail_core'));
-  g.add(mk(0.006, 0.055, 0.28, 'trail_mid'));
-  g.add(mk(0.012, 0.085, 0.12, 'trail_glow'));
+  g.add(mk(0.002, 0.028, 0.78, 'trail_core'));
+  g.add(mk(0.005, 0.048, 0.3, 'trail_mid'));
+  g.add(mk(0.01, 0.07, 0.12, 'trail_glow'));
   return g;
 }
 

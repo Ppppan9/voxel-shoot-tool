@@ -169,12 +169,11 @@ function playShot(t) {
   if (shotSfxT.length < S.sfxShootMax) { shotSfxT.push(t); sfx.play('shoot', S); }
 }
 
-const isFree = s => !s || s.state === 'empty';
 function tapInv(gi) {
   if (finishedAt || failedAt) return false;
   const b = G.inv.find(x => x.gi === gi && x.state === 'inv');
   if (!b) return false;
-  const si = G.slots.findIndex(isFree);
+  const si = G.slots.findIndex(s => !s);
   if (si < 0) { sfx.play('error', S); status('没有空槽'); return false; }
   b.state = 'flying';
   const vi = Math.max(0, G.inv.filter(x => x.state === 'inv').findIndex(x => x.gi === gi));
@@ -254,7 +253,7 @@ function step(t) {
     sh.left--; sh.fireNext = t + 1000 / Math.max(0.1, S.fireRate); sh.recoil = S.recoil;
     sh.yaw = Math.atan2(tg.p[0] - muz[0], -(tg.p[2] - muz[2]));
     playShot(t);
-    if (sh.left <= 0) { sh.state = 'empty'; } // 广告：空炮台保留显示 0，直到被新块替换
+    if (sh.left <= 0) { sh.state = 'leaving'; sh.leaveT0 = t; }
   }
 
   // 球飞行 / 命中（3D）
@@ -285,22 +284,30 @@ function step(t) {
         });
       }
       // 命中：中心亮闪光 + 白雾火花（广告 hot flash）
-      G.flashes.push({
-        id: 'fl_' + ballSeq, t0: t,
-        life: S.flashLife ?? 180,
-        p: [wp[0] + nrm[0] * 0.1, wp[1] + nrm[1] * 0.1, wp[2] + nrm[2] * 0.1],
-        sz0: S.flashSize ?? 2.4,
-      });
-      const nSp = Math.max(6, Math.round((S.sparkCount ?? 16)));
+      // 广告：几乎无圆白团，仅极淡瞬时闪光
+      if ((S.flashSize ?? 0) > 0.05) {
+        G.flashes.push({
+          id: 'fl_' + ballSeq, t0: t,
+          life: S.flashLife ?? 80,
+          p: [wp[0] + nrm[0] * 0.1, wp[1] + nrm[1] * 0.1, wp[2] + nrm[2] * 0.1],
+          sz0: Math.min(0.55, S.flashSize ?? 0.5),
+        });
+      }
+      const nSp = Math.max(8, Math.round((S.sparkCount ?? 14)));
       for (let k = 0; k < nSp; k++) {
-        const ang = Math.random() * Math.PI * 2, elev = Math.random() * Math.PI;
-        const sp = (0.5 + Math.random() * 1.1) * (S.sparkSpread ?? 7);
+        const ang = Math.random() * Math.PI * 2, elev = (Math.random() - 0.2) * 1.1;
+        const sp = (0.8 + Math.random() * 1.4) * (S.sparkSpread ?? 5.5);
+        // 细白射线：沿法线外喷 + 随机散布（广告 radial streaks）
         G.sparks.push({
           id: 'sp_' + ballSeq + '_' + k, t0: t,
-          life: (S.sparkLife ?? 520) * (0.75 + Math.random() * 0.55),
-          p: [wp[0], wp[1], wp[2]],
-          v: [Math.cos(ang) * Math.sin(elev) * sp, Math.cos(elev) * sp * 0.9 + 2, Math.sin(ang) * Math.sin(elev) * sp],
-          sz: 0.7 + Math.random() * 1.2,
+          life: (S.sparkLife ?? 260) * (0.7 + Math.random() * 0.5),
+          p: [wp[0] + nrm[0] * 0.05, wp[1] + nrm[1] * 0.05, wp[2] + nrm[2] * 0.05],
+          v: [
+            nrm[0] * sp * 0.75 + Math.cos(ang) * Math.cos(elev) * sp * 0.55,
+            nrm[1] * sp * 0.55 + Math.sin(elev) * sp * 0.7 + 1.5,
+            nrm[2] * sp * 0.75 + Math.sin(ang) * Math.cos(elev) * sp * 0.55,
+          ],
+          sz: 0.25 + Math.random() * 0.35,
         });
       }
       sfx.play('hit', S);
@@ -350,7 +357,7 @@ function step(t) {
     if (rec && S.autoStop) setTimeout(stopRec, S.tailSec * 1000 + (S.endCard ? S.endDelay : 0));
   }
   if (!finishedAt && !failedAt && S.loseRule === 'on') {
-    const emptySlot = G.slots.some(isFree);
+    const emptySlot = G.slots.some(s => !s);
     const flying = G.flyers.length || G.balls.length;
     const canFire = G.slots.some(sh => {
       if (!sh || sh.left <= 0 || sh.state !== 'slot') return false;
@@ -360,7 +367,7 @@ function step(t) {
     const canPlace = emptySlot && G.inv.some(b => b.state === 'inv');
     if (!flying && !canFire && !canPlace && st.total > 0) {
       // 还有库存但槽满且都不能打 → 失败
-      const full = !G.slots.some(isFree);
+      const full = G.slots.every(s => s);
       if (full || (!emptySlot && !canFire)) {
         failedAt = t; window.__failed = true; sfx.play('error', S);
         status(S.loseText || '没有空位了');
@@ -469,9 +476,11 @@ function scene(t) {
     // 出膛初期不画大白球（避免盖住顶面数字）；稍远后再显示珍珠球
     const u = Math.min(0.98, Math.max(0.04, (t - b.t0) / Math.max(1, b.dur)));
     const p = Wd.proj(...b.pos);
-    if (u >= 0.08) {
+    // 中段画珍珠球；接近命中淡出，避免命中处圆白团
+    if (u >= 0.08 && u < 0.88) {
       const near = Math.min(1, (u - 0.08) / 0.1);
-      items.push({ id: b.id, asset: 'ball', x: p[0], y: p[1], sx: 1, sy: 1, rot: 0, op: 0.7 + 0.3 * near, z: 50, w: b.pos.slice(), ws: 0.65 + 0.4 * near });
+      const fade = u > 0.7 ? 1 - (u - 0.7) / 0.18 : 1;
+      items.push({ id: b.id, asset: 'ball', x: p[0], y: p[1], sx: 1, sy: 1, rot: 0, op: (0.7 + 0.3 * near) * fade, z: 50, w: b.pos.slice(), ws: (0.55 + 0.35 * near) * fade });
     }
     // 广告：球后方半透明锥形拖尾（宽端靠后/近炮口侧，尖端贴球）— 非整段硬杆
     const addCone = (id, ua, ub, op, thick, z) => {
@@ -490,18 +499,18 @@ function scene(t) {
     };
     // 广告彗星拖尾：紧贴球身后短尾（约 8% 弹道 / 世界长 ~0.45–0.9），绝非炮口到目标竖线
     if (u > 0.06) {
-      const span = 0.11; // 短彗星
+      const span = 0.07; // 广告短软彗星
       const u0 = Math.max(0.02, u - span);
       const pa = b.path(u0), pb = b.pos;
       const ll = Math.hypot(pb[0]-pa[0], pb[1]-pa[1], pb[2]-pa[2]) || 0.01;
-      const worldLen = Math.max(0.6, Math.min(1.2, ll * 0.95));
-      addCone(b.id + '_tr', u0, u, 1.0, 1.0, 49);
+      const worldLen = Math.max(0.4, Math.min(0.85, ll * 0.85));
+      addCone(b.id + '_tr', u0, u, 0.95, 0.7, 49);
       const last = items[items.length - 1];
       if (last && last.id === b.id + '_tr') last.trailLen = worldLen;
       // soft outer glow only, slightly longer
-      addCone(b.id + '_trg', u0, u, 0.5, 1.8, 48);
+      addCone(b.id + '_trg', u0, u, 0.35, 1.2, 48);
       const last2 = items[items.length - 1];
-      if (last2 && last2.id === b.id + '_trg') last2.trailLen = worldLen * 1.1;
+      if (last2 && last2.id === b.id + '_trg') last2.trailLen = worldLen * 1.15;
     }
   }
 
@@ -521,8 +530,8 @@ function scene(t) {
     const pit = Math.acos(Math.max(-1, Math.min(1, v[1] / sp))) - Math.PI / 2;
     const yw = Math.atan2(v[0], -v[2]);
     items.push({
-      id: d.id, asset: 'trail', x: p[0], y: p[1], sx: 1, sy: 1, rot: 0, op: (1 - u) * 0.9, z: 45,
-      w: d.p.slice(), ws: 1, trailLen: (0.5 + sp * 0.07) * (1 - u * 0.5), trailThick: 0.35 * d.sz, rx: pit, ry: yw, rz: 0,
+      id: d.id, asset: 'trail', x: p[0], y: p[1], sx: 1, sy: 1, rot: 0, op: (1 - u) * 0.85, z: 45,
+      w: d.p.slice(), ws: 1, trailLen: (0.7 + sp * 0.09) * (1 - u * 0.45), trailThick: 0.18 * d.sz, rx: pit, ry: yw, rz: 0,
     });
   }
   for (const f of G.flashes) {
@@ -680,7 +689,7 @@ async function moveHand(tx, ty, tok) {
 }
 function nextAuto() {
   // 选「外露可打最多」的库存色 → 点它
-  if (!G.slots.some(isFree) || !G.inv.length) return null;
+  if (G.slots.every(s => s) || !G.inv.length) return null;
   let best = null, ba = -1;
   for (const b of G.inv) {
     if (b.state !== 'inv') continue;
@@ -706,7 +715,7 @@ async function autoSolve() {
     while (tok === autoToken && !finishedAt && !failedAt) {
       // 等飞入/射击消化一点
       if (G.flyers.length) { await wait(80, tok); continue; }
-      if (G.slots.some(isFree) && G.inv.some(b => b.state === 'inv')) {
+      if (G.slots.some(s => !s) && G.inv.some(b => b.state === 'inv')) {
         if (Math.random() < S.thinkChance) await wait(rr(0, S.thinkMax), tok);
         const n = nextAuto();
         if (!n) { await wait(200, tok); continue; }
