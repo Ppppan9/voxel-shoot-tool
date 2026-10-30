@@ -1,10 +1,10 @@
 import { DEFAULT_HAND } from './default_hand.js';
 import { h5DeviceSelectOptions } from './h5/index.js';
 import { PRESET_ORDER } from './level.js';
-export const SETTINGS_VERSION = 1;
+export const SETTINGS_VERSION = 2;
 export const STORE_KEY = 'voxelShootTool.settings';
 export const APP_ID = 'voxel-shoot-tool';
-export const APP_VERSION = '1.0.0';
+export const APP_VERSION = '1.1.0';
 
 const levelOpts = [
   ...PRESET_ORDER.map(id => [id, ({
@@ -20,66 +20,66 @@ export const GROUPS = [
     ['canvasH', '画布高度(px)', 'range', 1280, 640, 2560, 2],
     ['level', '关卡', 'select', 'sphere_cage', levelOpts],
     ['seed', '随机种子', 'range', 1, 1, 9999, 1],
-    ['maxAmmo', '单块最多弹药', 'range', 88, 10, 200, 1],
+    ['maxAmmo', '单块最多弹药', 'range', 120, 10, 200, 1],
     ['ammoStep', '弹药取整步长', 'range', 5, 1, 20, 1],
     ['startSlots', '开局预填槽位数', 'range', 2, 0, 5, 1],
-    ['voxScale', '体素整体缩放', 'range', 0.75, 0.5, 1.8, 0.01],
-    ['targetRotSpeed', '目标旋转速度(°/秒)', 'range', 22, 0, 90, 1],
+    ['voxScale', '体素整体缩放', 'range', 1.05, 0.5, 1.8, 0.01],
+    ['targetRotSpeed', '目标旋转速度(°/秒)', 'range', 18, 0, 90, 1],
   ]],
   ['外观', [
-    ['bgColor', '背景色（参考深蓝）', 'color', '#1a2744'],
+    ['bgColor', '背景色（参考深蓝）', 'color', '#243A63'],
     ['titleText', '顶部文案', 'text', '这游戏太上头了'],
-    ['titleSize', '顶部字号', 'range', 42, 16, 72, 1],
-    ['titleY', '顶部文字Y', 'range', 42, 10, 160, 1],
+    ['titleSize', '顶部字号', 'range', 46, 16, 72, 1],
+    ['titleY', '顶部文字Y', 'range', 52, 10, 160, 1],
     ['titleColor', '顶部文字颜色', 'color', '#0a0a0a'],
-    ['col_green', '绿色', 'color', '#6fdc3a'],
-    ['col_orange', '橙色', 'color', '#ff8a2a'],
-    ['col_yellow', '黄色', 'color', '#ffd23a'],
+    ['col_green', '绿色', 'color', '#7CFC00'],
+    ['col_orange', '橙色', 'color', '#FF8A1F'],
+    ['col_yellow', '黄色', 'color', '#FFD400'],
     ['col_red', '红色', 'color', '#ff3b4a'],
     ['col_blue', '蓝色', 'color', '#3a7cff'],
     ['col_purple', '紫色', 'color', '#9b4dff'],
-    ['col_white', '白色', 'color', '#f2f4f8'],
+    ['col_white', '白色', 'color', '#F5F7FA'],
     ['col_pink', '粉色', 'color', '#ff6ad0'],
     ['col_black', '黑色', 'color', '#2a2a30'],
     ['col_cyan', '青色', 'color', '#3ad8e8'],
     ['col_brown', '棕色', 'color', '#8b5a2b'],
     ['col_tan', '米色', 'color', '#d4a574'],
     ['col_cream', '奶油色', 'color', '#f5e6c8'],
-    ['slotColor', '槽位凹槽颜色', 'color', '#152038'],
-    ['voxGap', '方块间缝(负=重叠)', 'range', -0.03, -0.08, 0.3, 0.005],
-    ['voxRound', '方块圆角', 'range', 0.14, 0, 0.45, 0.01],
+    ['slotColor', '槽位凹槽颜色', 'color', '#15263E'],
+    ['voxGap', '方块间缝(负=重叠)', 'range', -0.04, -0.08, 0.3, 0.005],
+    ['voxRound', '方块圆角', 'range', 0.16, 0, 0.45, 0.01],
     ['outline3d', '卡通描边', 'range', 0.7, 0, 2, 0.05],
-    ['ballR', '小球半径', 'range', 0.28, 0.1, 0.8, 0.01],
-    ['ballGlow', '小球自发光', 'range', 0.45, 0, 2, 0.05],
-    ['ballHalo', '小球光晕半径', 'range', 1.7, 1, 2.5, 0.05],
+    ['ballR', '小球半径', 'range', 0.32, 0.1, 0.8, 0.01],
+    ['ballGlow', '小球自发光', 'range', 0.65, 0, 2, 0.05],
+    ['ballHalo', '小球光晕半径', 'range', 1.9, 1, 2.5, 0.05],
     ['ballHaloOp', '小球光晕不透明度', 'range', 0.28, 0, 0.8, 0.01],
-    ['invScale', '库存块缩放', 'range', 1.2, 0.6, 2, 0.01],
+    ['invScale', '库存块缩放', 'range', 1.45, 0.6, 2.2, 0.01],
   ]],
   ['3D 渲染', [
-    ['cam3dFov', '相机 FOV(°)', 'range', 42, 8, 60, 0.5],
+    ['cam3dFov', '相机 FOV(°)', 'range', 34, 8, 60, 0.5],
     ['cam3dX', '相机 X', 'range', 0, -40, 40, 0.1],
-    ['cam3dY', '相机 Y', 'range', 18, 2, 40, 0.1],
-    ['cam3dZ', '相机 Z', 'range', 28, 5, 50, 0.1],
+    ['cam3dY', '相机 Y', 'range', 15.5, 2, 40, 0.1],
+    ['cam3dZ', '相机 Z', 'range', 22.5, 5, 50, 0.1],
     ['cam3dTX', '目标 X', 'range', 0, -20, 20, 0.1],
-    ['cam3dTY', '目标 Y', 'range', 3.5, -5, 20, 0.1],
-    ['cam3dTZ', '目标 Z', 'range', 5, -10, 20, 0.1],
-    ['targetY', '体素中心高度', 'range', 9.2, 2, 14, 0.1],
-    ['slotY', '槽位高度', 'range', 0.7, 0, 4, 0.05],
-    ['slotZ', '槽位纵深 Z', 'range', 8.5, 2, 14, 0.05],
-    ['slotSpan', '槽位总跨度', 'range', 11, 4, 16, 0.1],
-    ['invY', '库存高度', 'range', 0.2, 0, 3, 0.05],
-    ['invZ', '库存纵深 Z', 'range', 12.5, 4, 18, 0.05],
-    ['invCell', '库存格距', 'range', 1.4, 0.8, 2.5, 0.05],
-    ['light3dSun', '主光强度', 'range', 2.4, 0, 6, 0.05],
+    ['cam3dTY', '目标 Y', 'range', 5.2, -5, 20, 0.1],
+    ['cam3dTZ', '目标 Z', 'range', 3.5, -10, 20, 0.1],
+    ['targetY', '体素中心高度', 'range', 9.8, 2, 14, 0.1],
+    ['slotY', '槽位高度', 'range', 0.85, 0, 4, 0.05],
+    ['slotZ', '槽位纵深 Z', 'range', 7.6, 2, 14, 0.05],
+    ['slotSpan', '槽位总跨度', 'range', 10.8, 4, 16, 0.1],
+    ['invY', '库存高度', 'range', 0.35, 0, 3, 0.05],
+    ['invZ', '库存纵深 Z', 'range', 11.0, 4, 18, 0.05],
+    ['invCell', '库存格距', 'range', 1.7, 0.8, 2.5, 0.05],
+    ['light3dSun', '主光强度', 'range', 2.7, 0, 6, 0.05],
     ['light3dAmbient', '环境光', 'range', 0.85, 0, 4, 0.05],
     ['light3dAzim', '主光方位角', 'range', 320, 0, 360, 1],
     ['light3dElev', '主光仰角', 'range', 62, 5, 90, 1],
-    ['mat3dRough', '默认粗糙度', 'range', 0.55, 0, 1, 0.01],
-    ['voxRough', '体素粗糙度', 'range', 0.42, 0, 1, 0.01],
-    ['tankRough', '炮台粗糙度', 'range', 0.5, 0, 1, 0.01],
+    ['mat3dRough', '默认粗糙度', 'range', 0.45, 0, 1, 0.01],
+    ['voxRough', '体素粗糙度', 'range', 0.38, 0, 1, 0.01],
+    ['tankRough', '炮台粗糙度', 'range', 0.4, 0, 1, 0.01],
   ]],
   ['玩法与动画', [
-    ['fireRate', '射速(发/秒)', 'range', 14, 1, 40, 0.5],
+    ['fireRate', '射速(发/秒)', 'range', 16, 1, 40, 0.5],
     ['ballSpeed', '球速(格/秒)', 'range', 38, 5, 120, 1],
     ['ballArc', '球弧线高度', 'range', 1.8, 0, 8, 0.1],
     ['gravity', '碎屑重力', 'range', 28, 0, 80, 1],
@@ -88,10 +88,10 @@ export const GROUPS = [
     ['leaveDur', '弹药打光离场(ms)', 'range', 280, 50, 1500, 10],
     ['popDur', '方块消除(ms)', 'range', 200, 0, 800, 10],
     ['jellyPop', '果冻挤压强度', 'range', 1.15, 0, 2, 0.05],
-    ['debrisCount', '碎屑数', 'range', 10, 0, 20, 1],
+    ['debrisCount', '碎屑数', 'range', 14, 0, 24, 1],
     ['debrisLife', '碎屑寿命(ms)', 'range', 750, 100, 2500, 50],
     ['debrisSize', '碎屑尺寸', 'range', 0.3, 0.05, 0.8, 0.01],
-    ['debrisSpread', '碎屑飞散', 'range', 1.4, 0.2, 3, 0.05],
+    ['debrisSpread', '碎屑飞散', 'range', 1.85, 0.2, 3, 0.05],
     ['bobAmp', '炮台呼吸幅度', 'range', 0.06, 0, 0.4, 0.01],
     ['bobPeriod', '呼吸周期(ms)', 'range', 600, 200, 2000, 10],
     ['recoil', '射击后坐', 'range', 0.08, 0, 0.5, 0.01],
@@ -203,6 +203,18 @@ export function migrate(obj) {
     const mv = (o, n, f = x => x) => { if (o in s) { if (!(n in s)) s[n] = f(s[o]); delete s[o]; } };
     mv('handImg', 'handImage'); mv('sfxVol', 'sfxVolume'); mv('sfx', 'sfxMute', x => !x);
     v = 1;
+  }
+  // v2：视觉对齐参考广告 — 仍等于旧默认才替换
+  const OLD = {
+    2: {
+      bgColor: '#1a2744', cam3dFov: 42, cam3dY: 18, cam3dZ: 28, cam3dTY: 3.5, cam3dTZ: 5,
+      targetY: 9.2, slotZ: 8.5, invZ: 12.5, invCell: 1.4, voxScale: 0.75, invScale: 1.2,
+      col_green: '#6fdc3a', titleSize: 42, ballR: 0.28, debrisCount: 10,
+    },
+  };
+  for (const nv of Object.keys(OLD).map(Number).sort((a,b)=>a-b)) if (v < nv) {
+    for (const k in OLD[nv]) if (s[k] === OLD[nv][k]) delete s[k];
+    v = nv;
   }
   const out = { ...DEFS };
   for (const k in DEFS) if (k in s && typeof s[k] === typeof DEFS[k]) out[k] = s[k];

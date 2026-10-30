@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { makeShooter, makeBall, makeInvBlock, geos, mat, colorHex } from '../three/scene3d.js';
+import { makeShooter, makeBall, makeInvBlock, makeTrail, geos, mat, colorHex } from '../three/scene3d.js';
 import { DW, DH } from '../world.js';
 export const P_REF = [0, 1.2, 6];
 export function buildSprites(S, L, Wd, K = 1.5) {
@@ -34,6 +34,7 @@ export function buildSprites(S, L, Wd, K = 1.5) {
     snap('debris_' + col, place(new THREE.Mesh(geos(S).debris, mat(S, colorHex(S, col))), P_REF, 1), P_REF);
   }
   snap('ball', place(makeBall(S), P_REF, S.ballR), P_REF);
+  snap('trail', place(makeTrail(S), P_REF, 1), P_REF);
   { const m = new THREE.Mesh(geos(S).slot, mat(S, S.slotColor || '#152038', { rough: 0.7 })); snap('slot', place(m, [P_REF[0], 0.04, P_REF[2]]), [P_REF[0], 0.04, P_REF[2]]); }
   // 全画布背景精灵（纯色）
   { const c = document.createElement('canvas'); c.width = 8; c.height = 8; const g = c.getContext('2d'); g.fillStyle = S.bgColor || '#1a2744'; g.fillRect(0, 0, 8, 8); out.background = { c, w: DW, h: DH, ax: 0, ay: 0 }; }

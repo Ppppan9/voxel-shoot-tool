@@ -57,11 +57,12 @@ function startLevel(Lnew) {
     balls: [], pops: [], debris: [], flyers: [],
     rotY: 0, t0: now(),
   };
-  // 预填槽位
-  (L.preSlots || []).forEach((b, i) => {
-    if (i >= SLOTS) return;
-    G.slots[i] = { id: 'pre_' + i, color: b.color, name: L.palette[b.color], left: b.ammo, ammo0: b.ammo, state: 'slot', si: i, t0: now(), fireNext: now() + 200, yaw: 0, recoil: 0 };
-  });
+  // 预填槽位（允许稀疏：广告开局常为左右两端有炮）
+  const pre = L.preSlots || [];
+  for (let i = 0; i < SLOTS; i++) {
+    const b = pre[i]; if (!b) continue;
+    G.slots[i] = { id: 'pre_' + i, color: b.color, name: L.palette[b.color], left: b.ammo, ammo0: b.ammo, state: 'slot', si: i, t0: now(), fireNext: now() + 120, yaw: 0, recoil: 0 };
+  }
   rebuild();
 }
 
@@ -141,7 +142,11 @@ function tapInv(gi) {
   const si = G.slots.findIndex(s => !s);
   if (si < 0) { sfx.play('error', S); status('没有空槽'); return false; }
   b.state = 'flying';
-  const from = invWorld(gi);
+  const vis = G.inv.filter(x => x.state === 'inv' || x.gi === gi);
+  // from: current visual cell before removal
+  const vi = Math.max(0, G.inv.filter(x => x.state === 'inv').findIndex(x => x.gi === gi));
+  const col = vi % L.grid.cols, row = Math.floor(vi / L.grid.cols);
+  const from = Wd.gridPos(col, row, L.grid.cols, L.grid.rows);
   const to = slotWorld(si, now(), null);
   G.flyers.push({
     id: 'fly_' + b.id, color: b.color, name: b.name, ammo: b.left, gi, si,
@@ -154,15 +159,16 @@ function tapInv(gi) {
 }
 
 function hitInv(x, y) {
-  // 屏幕点 → 最近库存块
-  let best = -1, bd = 40 * 40;
-  for (const b of G.inv) {
-    if (b.state !== 'inv') continue;
-    const w = invWorld(b.gi);
-    const p = Wd.proj(w[0], w[1] + 0.4, w[2]);
+  let best = -1, bd = 48 * 48;
+  const vis = G.inv.filter(b => b.state === 'inv');
+  const cap = L.grid.cols * L.grid.rows;
+  vis.slice(0, cap).forEach((b, vi) => {
+    const col = vi % L.grid.cols, row = Math.floor(vi / L.grid.cols);
+    const w = Wd.gridPos(col, row, L.grid.cols, L.grid.rows);
+    const p = Wd.proj(w[0], w[1] + 0.35, w[2]);
     const d = (p[0] - x) ** 2 + (p[1] - y) ** 2;
     if (d < bd) { bd = d; best = b.gi; }
-  }
+  });
   return best;
 }
 
@@ -243,13 +249,19 @@ function step(t) {
       const wp = worldOfVox(b.m, G.rotY);
       removeVoxel(L, st, b.m);
       G.pops.push({ n: b.m, t0: t, color: name, w: wp });
+      const nrm = b.nrm || [0, 1, 0];
       for (let k = 0; k < S.debrisCount; k++) {
-        const ang = Math.random() * Math.PI * 2, elev = Math.random() * Math.PI * 0.6;
-        const sp = (0.6 + Math.random()) * S.debrisSpread * 8;
+        const ang = Math.random() * Math.PI * 2, elev = 0.15 + Math.random() * 0.7;
+        const sp = (0.8 + Math.random()) * S.debrisSpread * 10;
+        // 沿命中法线外飞 + 随机扰动（广告碎屑朝外飞）
         G.debris.push({
           id: 'd_' + ballSeq + '_' + k, color: name, t0: t,
-          p: wp.slice(),
-          v: [Math.cos(ang) * Math.cos(elev) * sp, Math.sin(elev) * sp + 4, Math.sin(ang) * Math.cos(elev) * sp],
+          p: [wp[0] + nrm[0] * 0.2, wp[1] + nrm[1] * 0.2, wp[2] + nrm[2] * 0.2],
+          v: [
+            nrm[0] * sp * 0.85 + Math.cos(ang) * Math.cos(elev) * sp * 0.45,
+            nrm[1] * sp * 0.5 + Math.sin(elev) * sp * 0.7 + 3,
+            nrm[2] * sp * 0.85 + Math.sin(ang) * Math.cos(elev) * sp * 0.45,
+          ],
         });
       }
       sfx.play('hit', S);
@@ -368,21 +380,37 @@ function scene(t) {
     });
   }
 
-  // 库存
-  for (const b of G.inv) {
-    if (b.state !== 'inv') continue;
-    const w = invWorld(b.gi);
-    const p = Wd.proj(w[0], w[1], w[2]);
-    items.push({
-      id: 'inv_' + b.id, asset: 'inv_' + b.name, x: p[0], y: p[1], sx: 1, sy: 1, rot: 0, op: 1, z: 10 + b.gi,
-      w: [w[0], w[1], w[2]], ws: 1, num: b.left, numOp: 1,
+  // 库存（按 grid 显示；gi 重排到可见格，对齐广告 3×3/4×4）
+  {
+    const vis = G.inv.filter(b => b.state === 'inv');
+    const cap = L.grid.cols * L.grid.rows;
+    vis.slice(0, cap).forEach((b, vi) => {
+      const col = vi % L.grid.cols, row = Math.floor(vi / L.grid.cols);
+      const w = Wd.gridPos(col, row, L.grid.cols, L.grid.rows);
+      const p = Wd.proj(w[0], w[1], w[2]);
+      b._visGi = vi;
+      items.push({
+        id: 'inv_' + b.id, asset: 'inv_' + b.name, x: p[0], y: p[1], sx: 1, sy: 1, rot: 0, op: 1, z: 10 + vi,
+        w: [w[0], w[1], w[2]], ws: 1, num: b.left, numOp: 1,
+      });
     });
   }
 
-  // 球
+  // 球 + 白色运动拖尾
   for (const b of G.balls) {
     const p = Wd.proj(...b.pos);
     items.push({ id: b.id, asset: 'ball', x: p[0], y: p[1], sx: 1, sy: 1, rot: 0, op: 1, z: 50, w: b.pos.slice(), ws: 1 });
+    const u = Math.min(0.95, Math.max(0.04, (now() - b.t0) / Math.max(1, b.dur)));
+    const prev = b.path(Math.max(0, u - 0.1));
+    const dx = b.pos[0] - prev[0], dy = b.pos[1] - prev[1], dz = b.pos[2] - prev[2];
+    const len = Math.hypot(dx, dy, dz) || 0.01;
+    const mid = [(b.pos[0] + prev[0]) / 2, (b.pos[1] + prev[1]) / 2, (b.pos[2] + prev[2]) / 2];
+    const pitch = Math.acos(Math.max(-1, Math.min(1, dy / len))) - Math.PI / 2;
+    const yaw = Math.atan2(dx, -dz);
+    items.push({
+      id: b.id + '_tr', asset: 'trail', x: p[0], y: p[1], sx: 1, sy: 1, rot: 0, op: 0.65, z: 49,
+      w: mid, ws: 1, trailLen: Math.min(3.5, len * 4 + 0.6), rx: pitch, ry: yaw, rz: 0,
+    });
   }
   // 碎屑
   for (const d of G.debris) {
@@ -419,10 +447,19 @@ function draw(t) {
   // 2D 叠加：标题
   ctx.save();
   ctx.setTransform(v.k, 0, 0, v.k, 0, v.oy);
+  // 顶部标题：参考广告粗黑字（部分帧有浅底）
+  ctx.save();
+  ctx.fillStyle = 'rgba(255,255,255,0.92)';
+  const tw = S.titleSize * 6.2;
+  ctx.beginPath();
+  const ty = S.titleY;
+  ctx.roundRect(DW / 2 - tw / 2, ty - S.titleSize * 0.7, tw, S.titleSize * 1.35, 8);
+  ctx.fill();
   ctx.fillStyle = S.titleColor || '#0a0a0a';
   ctx.font = `900 ${S.titleSize}px "PingFang SC","Microsoft YaHei","Noto Sans CJK SC",sans-serif`;
   ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-  ctx.fillText(S.titleText || '这游戏太上头了', DW / 2, S.titleY);
+  ctx.fillText(S.titleText || '这游戏太上头了', DW / 2, ty);
+  ctx.restore();
 
   // 波纹
   for (const r of ripples) {
@@ -547,7 +584,10 @@ function nextAuto() {
   }
   if (!best) best = G.inv.find(b => b.state === 'inv');
   if (!best) return null;
-  const w = invWorld(best.gi);
+  const vis = G.inv.filter(b => b.state === 'inv');
+  const vi = Math.max(0, vis.indexOf(best));
+  const col = vi % L.grid.cols, row = Math.floor(vi / L.grid.cols);
+  const w = Wd.gridPos(col, row, L.grid.cols, L.grid.rows);
   const p = Wd.proj(w[0], w[1] + 0.3, w[2]);
   return { gi: best.gi, x: p[0] + rr(-S.jitter, S.jitter), y: p[1] + rr(-S.jitter, S.jitter) };
 }
@@ -762,7 +802,13 @@ window.__game = {
   view: () => view(), migrate, APP_ID, simulate,
   get autoRunning() { return autoRunning; }, nextAuto,
   loadLevel: Lx => { autoToken++; autoRunning = false; startLevel(Lx); },
-  invScreen: gi => { const w = invWorld(gi); return Wd.proj(w[0], w[1], w[2]); },
+  invScreen: gi => {
+    const vis = G.inv.filter(b => b.state === 'inv');
+    const vi = Math.max(0, vis.findIndex(b => b.gi === gi));
+    const col = vi % L.grid.cols, row = Math.floor(vi / L.grid.cols);
+    const w = Wd.gridPos(col, row, L.grid.cols, L.grid.rows);
+    return Wd.proj(w[0], w[1], w[2]);
+  },
 };
 
 buildPanel(); loadHand(); newGame();
