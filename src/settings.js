@@ -1,10 +1,10 @@
 import { DEFAULT_HAND } from './default_hand.js';
 import { h5DeviceSelectOptions } from './h5/index.js';
 import { PRESET_ORDER } from './level.js';
-export const SETTINGS_VERSION = 14;
+export const SETTINGS_VERSION = 15;
 export const STORE_KEY = 'voxelShootTool.settings';
 export const APP_ID = 'voxel-shoot-tool';
-export const APP_VERSION = '1.3.9';
+export const APP_VERSION = '1.4.0';
 
 const levelOpts = [
   ...PRESET_ORDER.map(id => [id, ({
@@ -66,7 +66,7 @@ export const GROUPS = [
     ['cam3dTX', '目标 X', 'range', 0, -20, 20, 0.1],
     ['cam3dTY', '目标 Y', 'range', 7.7, -5, 20, 0.1],
     ['cam3dTZ', '目标 Z', 'range', 0, -10, 20, 0.1],
-    ['targetY', '体素中心高度', 'range', 10.3, 2, 14, 0.1],
+    ['targetY', '体素中心高度', 'range', 10.0, 2, 14, 0.1],
     ['slotY', '槽位高度', 'range', 1.05, 0, 4, 0.05],
     ['slotZ', '槽位纵深 Z', 'range', 6.6, 2, 14, 0.05],
     ['slotSpan', '槽位总跨度', 'range', 10.8, 4, 16, 0.1],
@@ -89,20 +89,20 @@ export const GROUPS = [
     ['ballSpeed', '球速(格/秒)', 'range', 22, 5, 120, 1],
     ['ballArc', '球弧线高度', 'range', 1.8, 0, 8, 0.1],
     ['gravity', '碎屑重力', 'range', 28, 0, 80, 1],
-    ['flyDur', '库存飞入槽位(ms)', 'range', 320, 80, 1200, 10],
-    ['flyArc', '飞入弧高', 'range', 3.2, 0, 8, 0.1],
+    ['flyDur', '库存飞入槽位(ms)', 'range', 100, 80, 1200, 10],
+    ['flyArc', '飞入弧高', 'range', 0.4, 0, 8, 0.1],
     ['leaveDur', '弹药打光离场(ms)', 'range', 280, 50, 1500, 10],
     ['popDur', '方块消除(ms)', 'range', 200, 0, 800, 10],
     ['jellyPop', '果冻挤压强度', 'range', 1.15, 0, 2, 0.05],
-    ['debrisCount', '碎屑数', 'range', 30, 0, 40, 1],
+    ['debrisCount', '碎屑数', 'range', 36, 0, 40, 1],
     ['debrisLife', '碎屑寿命(ms)', 'range', 900, 100, 2500, 50],
     ['debrisSize', '碎屑尺寸', 'range', 0.2, 0.05, 0.8, 0.01],
     ['debrisSpread', '碎屑飞散', 'range', 2.5, 0.2, 4.5, 0.05],
-    ['sparkCount', '命中白雾数', 'range', 6, 0, 32, 1],
-    ['sparkLife', '白雾寿命(ms)', 'range', 580, 80, 1400, 10],
+    ['sparkCount', '命中白雾数', 'range', 10, 0, 32, 1],
+    ['sparkLife', '白雾寿命(ms)', 'range', 320, 80, 1400, 10],
     ['sparkSpread', '白雾飞散', 'range', 4, 0.5, 16, 0.1],
     ['flashLife', '命中闪光(ms)', 'range', 120, 60, 600, 10],
-    ['flashSize', '命中闪光尺寸', 'range', 1.1, 0.5, 6, 0.1],
+    ['flashSize', '命中闪光尺寸', 'range', 0.6, 0.5, 6, 0.1],
     ['bobAmp', '炮台呼吸幅度', 'range', 0.06, 0, 0.4, 0.01],
     ['bobPeriod', '呼吸周期(ms)', 'range', 600, 200, 2000, 10],
     ['recoil', '射击后坐', 'range', 0.24, 0, 0.6, 0.01],
@@ -257,6 +257,9 @@ export function migrate(obj) {
     14: {
       ballR: 0.15, ballGlow: 1.25, ballHalo: 1.65, ballHaloOp: 0.22, debrisCount: 26, debrisSize: 0.28,
       sparkCount: 18, sparkSpread: 7.5, flashLife: 200, flashSize: 2.8,
+    },
+    15: {
+      targetY: 10.3, flyDur: 320, flyArc: 3.2, sparkLife: 580, sparkCount: 6, flashSize: 1.1, debrisCount: 30,
     },
     13: {
       uiScale: 0.38, /* bump default 0.40 for taller multi-hump tanks */

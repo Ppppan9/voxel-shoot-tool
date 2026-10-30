@@ -1,10 +1,10 @@
-# Remaining vs reference (v1.3.9)
+# Remaining vs reference (v1.4.0)
 ## Done
-- Launcher block = exact inventory block model (makeInvBlock), same scale (invScale) and tilt; no morph pick→fly→slot→fire; recoil = position only, leave = uniform fade/shrink.
-- Muzzle from block top. Trails longer/wider comets (span 11%, len 0.6–1.2, glow 1.8).
-- Hit FX toned to ref: smaller balls (ballR .09), less halo/glow, flash 1.1/120ms, sparks 6, more+smaller debris.
-- Inventory col gap 6→2. Title white banner kept ON (ref f_0001 has it); toggle 顶部白底横幅 added.
+- Hit FX: sparks render as thin white velocity streaks (no round blobs); flash 0.6; more green debris shards.
+- Pick→slot: 100ms near-instant pop (arc 0.4), was 320ms/3.2.
+- Empty launchers stay in slot showing 0 until replaced by a new pick (state 'empty' counts as free).
+- targetY 10.3→10.0. Launcher still = inventory block model.
 ## Leftovers
-- Ref hits read as many thin long white streaks + green shard spray; ours still has more round white blobs.
-- Ref fly-in is ~instant pop; ours is 320ms arc.
-- Ref keeps 0-ammo tanks visible longer; ours fades out.
+- Ad hit spray denser/greener; ours still shows some white ball cores near hits.
+- Tap feedback/slot bob/countdown not retimed per frame (kept prior values).
+- Tanks↔inv gap and target framing still not pixel-matched; ad target bigger/tilted cage.

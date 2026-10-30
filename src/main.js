@@ -169,11 +169,12 @@ function playShot(t) {
   if (shotSfxT.length < S.sfxShootMax) { shotSfxT.push(t); sfx.play('shoot', S); }
 }
 
+const isFree = s => !s || s.state === 'empty';
 function tapInv(gi) {
   if (finishedAt || failedAt) return false;
   const b = G.inv.find(x => x.gi === gi && x.state === 'inv');
   if (!b) return false;
-  const si = G.slots.findIndex(s => !s);
+  const si = G.slots.findIndex(isFree);
   if (si < 0) { sfx.play('error', S); status('没有空槽'); return false; }
   b.state = 'flying';
   const vi = Math.max(0, G.inv.filter(x => x.state === 'inv').findIndex(x => x.gi === gi));
@@ -253,7 +254,7 @@ function step(t) {
     sh.left--; sh.fireNext = t + 1000 / Math.max(0.1, S.fireRate); sh.recoil = S.recoil;
     sh.yaw = Math.atan2(tg.p[0] - muz[0], -(tg.p[2] - muz[2]));
     playShot(t);
-    if (sh.left <= 0) { sh.state = 'leaving'; sh.leaveT0 = t; }
+    if (sh.left <= 0) { sh.state = 'empty'; } // 广告：空炮台保留显示 0，直到被新块替换
   }
 
   // 球飞行 / 命中（3D）
@@ -349,7 +350,7 @@ function step(t) {
     if (rec && S.autoStop) setTimeout(stopRec, S.tailSec * 1000 + (S.endCard ? S.endDelay : 0));
   }
   if (!finishedAt && !failedAt && S.loseRule === 'on') {
-    const emptySlot = G.slots.some(s => !s);
+    const emptySlot = G.slots.some(isFree);
     const flying = G.flyers.length || G.balls.length;
     const canFire = G.slots.some(sh => {
       if (!sh || sh.left <= 0 || sh.state !== 'slot') return false;
@@ -359,7 +360,7 @@ function step(t) {
     const canPlace = emptySlot && G.inv.some(b => b.state === 'inv');
     if (!flying && !canFire && !canPlace && st.total > 0) {
       // 还有库存但槽满且都不能打 → 失败
-      const full = G.slots.every(s => s);
+      const full = !G.slots.some(isFree);
       if (full || (!emptySlot && !canFire)) {
         failedAt = t; window.__failed = true; sfx.play('error', S);
         status(S.loseText || '没有空位了');
@@ -515,9 +516,13 @@ function scene(t) {
   for (const d of G.sparks) {
     const u = clamp01((t - d.t0) / d.life);
     const p = Wd.proj(...d.p);
+    // 广告：细长白色速度线（非圆白团）
+    const v = d.v, sp = Math.hypot(v[0], v[1], v[2]) || 1;
+    const pit = Math.acos(Math.max(-1, Math.min(1, v[1] / sp))) - Math.PI / 2;
+    const yw = Math.atan2(v[0], -v[2]);
     items.push({
-      id: d.id, asset: 'spark', x: p[0], y: p[1], sx: 1, sy: 1, rot: 0, op: (1 - u) * 0.95, z: 45,
-      w: d.p.slice(), ws: d.sz * (1.1 - u * 0.4),
+      id: d.id, asset: 'trail', x: p[0], y: p[1], sx: 1, sy: 1, rot: 0, op: (1 - u) * 0.9, z: 45,
+      w: d.p.slice(), ws: 1, trailLen: (0.5 + sp * 0.07) * (1 - u * 0.5), trailThick: 0.35 * d.sz, rx: pit, ry: yw, rz: 0,
     });
   }
   for (const f of G.flashes) {
@@ -675,7 +680,7 @@ async function moveHand(tx, ty, tok) {
 }
 function nextAuto() {
   // 选「外露可打最多」的库存色 → 点它
-  if (G.slots.every(s => s) || !G.inv.length) return null;
+  if (!G.slots.some(isFree) || !G.inv.length) return null;
   let best = null, ba = -1;
   for (const b of G.inv) {
     if (b.state !== 'inv') continue;
@@ -701,7 +706,7 @@ async function autoSolve() {
     while (tok === autoToken && !finishedAt && !failedAt) {
       // 等飞入/射击消化一点
       if (G.flyers.length) { await wait(80, tok); continue; }
-      if (G.slots.some(s => !s) && G.inv.some(b => b.state === 'inv')) {
+      if (G.slots.some(isFree) && G.inv.some(b => b.state === 'inv')) {
         if (Math.random() < S.thinkChance) await wait(rr(0, S.thinkMax), tok);
         const n = nextAuto();
         if (!n) { await wait(200, tok); continue; }

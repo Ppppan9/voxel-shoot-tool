@@ -13,7 +13,7 @@ await p.evaluate(()=>{for(const[k,v]of[['level','sphere_cage'],['startSlots',3],
 await p.evaluate(()=>{window.__T=performance.now()+500;__game.renderAt(__T);const v=__game.G.inv.filter(b=>b.state==='inv');const c=__game.invScreen(v[0].gi);__game.hand.visible=true;__game.hand.x=c[0];__game.hand.y=c[1];__game.renderAt(__T);});
 await snap('pick_0.png');
 console.log(await p.evaluate(()=>{const h=__game.hand;h.pressT0=__T;__game.G.slots[4]=null;__game.G.slots[3]=null;window.__vclock=__T;const r=__game.tapAt(h.x,h.y);return JSON.stringify([r, __game.G.flyers.length]);}));
-for(const [i,dt] of [[1,70],[2,170],[3,280],[4,700]]){await p.evaluate(dt=>{__game.renderAt(__T+dt)},dt);await snap(`pick_${i}.png`);}
+for(const [i,dt] of [[1,40],[2,80],[3,130],[4,400]]){await p.evaluate(dt=>{__game.renderAt(__T+dt)},dt);await snap(`pick_${i}.png`);}
 await p.evaluate(()=>{window.__vclock=null;__game.set('handShow',false);__game.set('startSlots',5);__game.set('fireRate',16);__game.newGame();});
 await p.evaluate(async()=>{let t=performance.now();for(let i=0;i<60;i++){t+=22;__game.renderAt(t);await new Promise(r=>setTimeout(r,0));}});
 await snap('game_fx.png');
