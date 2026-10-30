@@ -32,13 +32,15 @@ for (const [lv, refName] of pairs) {
   await p.evaluate(lv => {
     __game.set('level', lv);
     __game.set('startSlots', 2);
-    __game.set('fireRate', 22); // 对比图要有密集细白拖尾+碎屑
-    __game.set('ballSpeed', 24);
+    __game.set('fireRate', 14);
+    __game.set('ballSpeed', 14);
+    __game.set('debrisCount', 22);
     __game.set('targetRotSpeed', 6);
     __game.set('handShow', true);
     __game.set('handRest', false);
     __game.set('manualHand', true);
-    __game.set('debrisCount', 14);
+    __game.set('debrisCount', 22);
+    __game.set('pressEnabled', true);
     __game.newGame();
   }, lv);
   await p.evaluate(async () => {
@@ -48,12 +50,13 @@ for (const [lv, refName] of pairs) {
         const c = __game.invScreen(vis[0].gi);
         __game.hand.visible = true;
         __game.hand.x = c[0]; __game.hand.y = c[1];
+        __game.hand.pressT0 = performance.now();
         __game.S.handShow = true; __game.S.handRest = false;
       }
     } catch (e) {}
     let t = performance.now();
     // ~1.2s 开火，确保球与碎屑可见
-    for (let i = 0; i < 28; i++) { t += 28; __game.renderAt(t); await new Promise(r => setTimeout(r, 0)); }
+    for (let i = 0; i < 36; i++) { t += 24; __game.renderAt(t); await new Promise(r => setTimeout(r, 0)); }
     window.__vclock = null;
   });
   await p.waitForTimeout(80);

@@ -1,10 +1,10 @@
 import { DEFAULT_HAND } from './default_hand.js';
 import { h5DeviceSelectOptions } from './h5/index.js';
 import { PRESET_ORDER } from './level.js';
-export const SETTINGS_VERSION = 8;
+export const SETTINGS_VERSION = 9;
 export const STORE_KEY = 'voxelShootTool.settings';
 export const APP_ID = 'voxel-shoot-tool';
-export const APP_VERSION = '1.3.4';
+export const APP_VERSION = '1.3.5';
 
 const levelOpts = [
   ...PRESET_ORDER.map(id => [id, ({
@@ -51,10 +51,10 @@ export const GROUPS = [
     ['voxGap', '方块间缝(负=重叠)', 'range', -0.04, -0.08, 0.3, 0.005],
     ['voxRound', '方块圆角', 'range', 0.16, 0, 0.45, 0.01],
     ['outline3d', '卡通描边', 'range', 0.7, 0, 2, 0.05],
-    ['ballR', '小球半径', 'range', 0.18, 0.1, 0.8, 0.01],
-    ['ballGlow', '小球自发光', 'range', 0.65, 0, 2, 0.05],
-    ['ballHalo', '小球光晕半径', 'range', 1.35, 1, 2.5, 0.05],
-    ['ballHaloOp', '小球光晕不透明度', 'range', 0.06, 0, 0.8, 0.01],
+    ['ballR', '小球半径', 'range', 0.15, 0.08, 0.8, 0.01],
+    ['ballGlow', '小球自发光', 'range', 1.05, 0, 2, 0.05],
+    ['ballHalo', '小球光晕半径', 'range', 1.65, 1, 2.8, 0.05],
+    ['ballHaloOp', '小球光晕不透明度', 'range', 0.22, 0, 0.8, 0.01],
     ['invScale', '库存块缩放', 'range', 1.05, 0.6, 2.2, 0.01],
   ]],
   ['3D 渲染', [
@@ -83,8 +83,8 @@ export const GROUPS = [
     ['tankRough', '炮台粗糙度', 'range', 0.18, 0, 1, 0.01],
   ]],
   ['玩法与动画', [
-    ['fireRate', '射速(发/秒)', 'range', 16, 1, 40, 0.5],
-    ['ballSpeed', '球速(格/秒)', 'range', 28, 5, 120, 1],
+    ['fireRate', '射速(发/秒)', 'range', 18, 1, 40, 0.5],
+    ['ballSpeed', '球速(格/秒)', 'range', 22, 5, 120, 1],
     ['ballArc', '球弧线高度', 'range', 1.8, 0, 8, 0.1],
     ['gravity', '碎屑重力', 'range', 28, 0, 80, 1],
     ['flyDur', '库存飞入槽位(ms)', 'range', 320, 80, 1200, 10],
@@ -92,13 +92,16 @@ export const GROUPS = [
     ['leaveDur', '弹药打光离场(ms)', 'range', 280, 50, 1500, 10],
     ['popDur', '方块消除(ms)', 'range', 200, 0, 800, 10],
     ['jellyPop', '果冻挤压强度', 'range', 1.15, 0, 2, 0.05],
-    ['debrisCount', '碎屑数', 'range', 14, 0, 24, 1],
-    ['debrisLife', '碎屑寿命(ms)', 'range', 750, 100, 2500, 50],
-    ['debrisSize', '碎屑尺寸', 'range', 0.3, 0.05, 0.8, 0.01],
-    ['debrisSpread', '碎屑飞散', 'range', 1.85, 0.2, 3, 0.05],
+    ['debrisCount', '碎屑数', 'range', 20, 0, 36, 1],
+    ['debrisLife', '碎屑寿命(ms)', 'range', 900, 100, 2500, 50],
+    ['debrisSize', '碎屑尺寸', 'range', 0.28, 0.05, 0.8, 0.01],
+    ['debrisSpread', '碎屑飞散', 'range', 2.2, 0.2, 4, 0.05],
+    ['sparkCount', '命中白雾数', 'range', 14, 0, 28, 1],
+    ['sparkLife', '白雾寿命(ms)', 'range', 520, 80, 1200, 10],
+    ['sparkSpread', '白雾飞散', 'range', 6.5, 0.5, 14, 0.1],
     ['bobAmp', '炮台呼吸幅度', 'range', 0.06, 0, 0.4, 0.01],
     ['bobPeriod', '呼吸周期(ms)', 'range', 600, 200, 2000, 10],
-    ['recoil', '射击后坐', 'range', 0.08, 0, 0.5, 0.01],
+    ['recoil', '射击后坐', 'range', 0.2, 0, 0.6, 0.01],
     ['winEnabled', '目标清空时通关', 'bool', true],
     ['loseRule', '失败判定', 'select', 'on', [['on', '无空槽且无法继续射击 → 失败'], ['off', '不判失败']]],
   ]],
@@ -143,7 +146,7 @@ export const GROUPS = [
     ['handFlip', '手指水平翻转', 'bool', false],
     ['handImage', '上传手指图片(透明PNG；默认=麻将同款)', 'file', DEFAULT_HAND],
     ['pressEnabled', '点击按下效果', 'bool', true],
-    ['pressDepth', '按压幅度', 'range', 0.1, 0, 0.3, 0.01],
+    ['pressDepth', '按压幅度', 'range', 0.16, 0, 0.35, 0.01],
     ['tapRipple', '点击波纹（参考无）', 'bool', false],
     ['handShow', '显示手指', 'bool', true],
     ['hideCursor', '手指出现时隐藏鼠标', 'bool', true],
@@ -233,6 +236,10 @@ export function migrate(obj) {
     },
     8: {
       uiScale: 0.36,
+    },
+    9: {
+      ballR: 0.18, ballGlow: 0.65, ballHaloOp: 0.06, fireRate: 16, ballSpeed: 28,
+      debrisCount: 14, recoil: 0.08,
     },
   };
   for (const nv of Object.keys(OLD).map(Number).sort((a,b)=>a-b)) if (v < nv) {

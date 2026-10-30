@@ -9,7 +9,7 @@ export const PALETTE = {
   white: '#F5F7FA', cyan: '#22D3EE', brown: '#8B5A2B', tan: '#E0B07A', cream: '#FFE8C8',
 };
 export const colorHex = (S, n) => S['col_' + n] || PALETTE[n] || '#888888';
-const IS3D_RE = /^(shooter|cannon|ball|debris|slot|inv|trail|num)/;
+const IS3D_RE = /^(shooter|cannon|ball|spark|debris|slot|inv|trail|num)/;
 export const IS3D = a => IS3D_RE.test(a || '');
 
 let shared = null;
@@ -156,15 +156,16 @@ export function makeInvBlock(S, color) {
 export function makeBall(S) {
   const g = new THREE.Group(); g.name = 'ball';
   const glow = S.ballGlow || 0;
+  // 广告：小白珍珠球 + 软光晕
   const coreMat = new THREE.MeshStandardMaterial({
-    color: 0xffffff, roughness: 0.08, metalness: 0.15,
-    emissive: new THREE.Color(0xffffff), emissiveIntensity: 0.25 + glow * 0.55,
+    color: 0xffffff, roughness: 0.05, metalness: 0.08,
+    emissive: new THREE.Color(0xffffff), emissiveIntensity: 0.45 + glow * 0.7,
   }); coreMat.name = 'mat_ball';
   const core = new THREE.Mesh(geos(S).ball, coreMat); core.name = 'ball_core'; g.add(core);
   const rim = new THREE.Mesh(geos(S).ball, new THREE.MeshBasicMaterial({
-    color: 0xffffff, transparent: true, opacity: 0.35, depthWrite: false, blending: THREE.AdditiveBlending,
+    color: 0xffffff, transparent: true, opacity: 0.5, depthWrite: false, blending: THREE.AdditiveBlending,
   }));
-  rim.scale.setScalar(1.1); rim.renderOrder = 1; g.add(rim);
+  rim.scale.setScalar(1.18); rim.renderOrder = 1; g.add(rim);
   if (S.ballHalo > 1 && S.ballHaloOp > 0) {
     const halo = new THREE.Mesh(geos(S).ball, new THREE.MeshBasicMaterial({
       color: 0xfff8ff, transparent: true, opacity: S.ballHaloOp, depthWrite: false, blending: THREE.AdditiveBlending,
@@ -174,25 +175,34 @@ export function makeBall(S) {
   return g;
 }
 
-// 运动拖尾：拉长半透明白胶囊
+// 广告子弹拖尾：半透明锥形白针（炮口宽 → 球端尖）+ 软光晕
 export function makeTrail(S) {
   const g = new THREE.Group(); g.name = 'trail';
-  // 广告细白连续线：针状锥 + 淡光晕（叠段后读成细白 streak）
-  const m = new THREE.Mesh(
-    new THREE.CylinderGeometry(0.018, 0.055, 1, 8),
-    new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.88, depthWrite: false, blending: THREE.AdditiveBlending })
+  // Cylinder: rTop(+Y)=尖朝球，rBottom(-Y)=宽朝炮口
+  const core = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.002, 0.042, 1, 10, 1, true),
+    new THREE.MeshBasicMaterial({
+      color: 0xffffff, transparent: true, opacity: 0.38, depthWrite: false,
+      blending: THREE.AdditiveBlending, side: THREE.DoubleSide,
+    })
   );
-  m.name = 'trail_core'; g.add(m);
+  core.name = 'trail_core'; g.add(core);
+  const mid = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.006, 0.07, 1, 10, 1, true),
+    new THREE.MeshBasicMaterial({
+      color: 0xffffff, transparent: true, opacity: 0.2, depthWrite: false,
+      blending: THREE.AdditiveBlending, side: THREE.DoubleSide,
+    })
+  );
+  mid.name = 'trail_mid'; g.add(mid);
   const glow = new THREE.Mesh(
-    new THREE.CylinderGeometry(0.04, 0.09, 1, 8),
-    new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.22, depthWrite: false, blending: THREE.AdditiveBlending })
+    new THREE.CylinderGeometry(0.012, 0.11, 1, 8, 1, true),
+    new THREE.MeshBasicMaterial({
+      color: 0xfff8ff, transparent: true, opacity: 0.09, depthWrite: false,
+      blending: THREE.AdditiveBlending, side: THREE.DoubleSide,
+    })
   );
   glow.name = 'trail_glow'; g.add(glow);
-  const tip = new THREE.Mesh(
-    new THREE.SphereGeometry(0.06, 10, 8),
-    new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.95, depthWrite: false, blending: THREE.AdditiveBlending })
-  );
-  tip.position.y = 0.5; g.add(tip);
   return g;
 }
 
@@ -247,7 +257,7 @@ export function create3D(opt = {}) {
       let obj; const k = it.asset;
       if (k.startsWith('shooter_') || k.startsWith('cannon_')) obj = makeShooter(S0, k.split('_')[1], Wd);
       else if (k.startsWith('inv_')) obj = makeInvBlock(S0, k.slice(4));
-      else if (k === 'ball') obj = makeBall(S0);
+      else if (k === 'ball' || k === 'spark') obj = makeBall(S0);
       else if (k === 'trail') obj = makeTrail(S0);
       else if (k.startsWith('debris_')) { obj = new THREE.Mesh(geos(S0).debris, mat(S0, colorHex(S0, k.slice(7)), { name: 'mat_debris_' + k.slice(7) })); obj.name = 'debris'; }
       else return null;
@@ -276,16 +286,25 @@ export function create3D(opt = {}) {
       if (ob.userData.body) ob.userData.body.rotation.y = it.bodyYaw ?? 0;
       if (ob.userData.upper) ob.userData.upper.rotation.y = it.turretYaw ?? it.bodyYaw ?? 0;
       const s = it.ws ?? 1;
-      if (it.asset === 'ball') ob.scale.setScalar(S.ballR * s);
+      if (it.asset === 'ball' || it.asset === 'spark') {
+        ob.scale.setScalar((it.asset === 'spark' ? (S.ballR * 0.55) : S.ballR) * s);
+        const bop = it.op ?? 1;
+        ob.traverse(ch => {
+          if (!ch.material) return;
+          if (ch.userData._bop == null && ch.material.opacity != null) ch.userData._bop = ch.material.opacity;
+          if (ch.material.transparent && ch.userData._bop != null) ch.material.opacity = ch.userData._bop * bop;
+        });
+      }
       else if (it.asset === 'trail') {
         const len = it.trailLen || 1.8;
-        ob.scale.set(0.13 * s, len, 0.13 * s);
+        const thick = (it.trailThick ?? 0.7) * s;
+        ob.scale.set(thick, len, thick);
         if (it.rx != null || it.ry != null) ob.rotation.set(it.rx || 0, it.ry || 0, it.rz || 0);
         else if (it.trailQuat) ob.quaternion.copy(it.trailQuat);
         const op = it.op ?? 0.75;
         ob.traverse(ch => {
           if (ch.material && ch.material.transparent) {
-            const base = ch.name === 'trail_core' ? 0.88 : ch.name === 'trail_glow' ? 0.22 : 0.95;
+            const base = ch.name === 'trail_core' ? 0.42 : ch.name === 'trail_mid' ? 0.2 : ch.name === 'trail_glow' ? 0.09 : 0.3;
             ch.material.opacity = base * op;
           }
         });

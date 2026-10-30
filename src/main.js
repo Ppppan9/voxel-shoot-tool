@@ -56,7 +56,7 @@ function startLevel(Lnew) {
   G = {
     slots: new Array(SLOTS).fill(null),
     inv: L.inventory.map((b, i) => ({ ...b, left: b.ammo, gi: i, state: 'inv' })),
-    balls: [], pops: [], debris: [], flyers: [],
+    balls: [], pops: [], debris: [], sparks: [], flyers: [],
     rotY: (S.level === 'sphere_cage' ? 1.15 : S.level === 'diamond_cage' ? 0.85 : S.level === 'house' ? 0.65 : S.level === 'watermelon' ? -0.72 : 0), t0: now(),
   };
   // 预填槽位（允许稀疏：广告开局常为左右两端有炮）
@@ -264,17 +264,31 @@ function step(t) {
       removeVoxel(L, st, b.m);
       G.pops.push({ n: b.m, t0: t, color: name, w: wp });
       const nrm = b.nrm || [0, 1, 0];
-      for (let k = 0; k < S.debrisCount; k++) {
-        const ang = Math.random() * Math.PI * 2, elev = 0.15 + Math.random() * 0.7;
-        const sp = (0.8 + Math.random()) * S.debrisSpread * 10;
+      const nDeb = S.debrisCount | 0;
+      for (let k = 0; k < nDeb; k++) {
+        const ang = Math.random() * Math.PI * 2, elev = 0.1 + Math.random() * 0.85;
+        const sp = (0.9 + Math.random() * 1.2) * S.debrisSpread * 10;
         G.debris.push({
           id: 'd_' + ballSeq + '_' + k, color: name, t0: t,
-          p: [wp[0] + nrm[0] * 0.2, wp[1] + nrm[1] * 0.2, wp[2] + nrm[2] * 0.2],
+          p: [wp[0] + nrm[0] * 0.15, wp[1] + nrm[1] * 0.15, wp[2] + nrm[2] * 0.15],
           v: [
-            nrm[0] * sp * 0.85 + Math.cos(ang) * Math.cos(elev) * sp * 0.45,
-            nrm[1] * sp * 0.5 + Math.sin(elev) * sp * 0.7 + 3,
-            nrm[2] * sp * 0.85 + Math.sin(ang) * Math.cos(elev) * sp * 0.45,
+            nrm[0] * sp * 0.9 + Math.cos(ang) * Math.cos(elev) * sp * 0.55,
+            nrm[1] * sp * 0.45 + Math.sin(elev) * sp * 0.85 + 4,
+            nrm[2] * sp * 0.9 + Math.sin(ang) * Math.cos(elev) * sp * 0.55,
           ],
+        });
+      }
+      // 命中白雾/火花（广告 soft white mist）
+      const nSp = Math.max(4, Math.round((S.sparkCount ?? 8)));
+      for (let k = 0; k < nSp; k++) {
+        const ang = Math.random() * Math.PI * 2, elev = Math.random() * Math.PI;
+        const sp = (0.4 + Math.random()) * (S.sparkSpread ?? 4);
+        G.sparks.push({
+          id: 'sp_' + ballSeq + '_' + k, t0: t,
+          life: (S.sparkLife ?? 380) * (0.7 + Math.random() * 0.6),
+          p: [wp[0], wp[1], wp[2]],
+          v: [Math.cos(ang) * Math.sin(elev) * sp, Math.cos(elev) * sp * 0.8 + 1.5, Math.sin(ang) * Math.sin(elev) * sp],
+          sz: 0.55 + Math.random() * 0.9,
         });
       }
       sfx.play('hit', S);
@@ -299,6 +313,15 @@ function step(t) {
     if (age > S.debrisLife) { G.debris.splice(i, 1); continue; }
     const dt2 = dt / 1000;
     d.v[1] -= S.gravity * dt2;
+    d.p[0] += d.v[0] * dt2; d.p[1] += d.v[1] * dt2; d.p[2] += d.v[2] * dt2;
+  }
+  // 白雾火花
+  for (let i = G.sparks.length - 1; i >= 0; i--) {
+    const d = G.sparks[i];
+    const age = t - d.t0;
+    if (age > d.life) { G.sparks.splice(i, 1); continue; }
+    const dt2 = dt / 1000;
+    d.v[1] -= (S.gravity * 0.25) * dt2;
     d.p[0] += d.v[0] * dt2; d.p[1] += d.v[1] * dt2; d.p[2] += d.v[2] * dt2;
   }
   G.pops = G.pops.filter(p => t - p.t0 < S.popDur + 50);
@@ -376,11 +399,13 @@ function scene(t) {
       const u = clamp01((t - sh.leaveT0) / S.leaveDur);
       op = 1 - easeOut(u); ws = uiScale * (1 - 0.25 * u);
     }
+    // 后坐：略下压 + 微缩
+    const rec = Math.min(1, (sh.recoil || 0) / Math.max(0.01, S.recoil || 0.18));
+    ws *= 1 - 0.08 * rec;
     const p = Wd.proj(sw.x, sw.y, sw.z);
     items.push({
       id: sh.id, asset: 'shooter_' + sh.name, x: p[0], y: p[1], sx: 1, sy: 1, rot: 0, op,
-      z: 20 + si, w: [sw.x, sw.y, sw.z], ws, num: sh.left, numOp: op,
-      // 发射区角度固定微仰，不跟 yaw 扭歪（广告顶面数字可读）
+      z: 20 + si, w: [sw.x, sw.y - rec * 0.12, sw.z], ws, num: sh.left, numOp: op,
       bodyYaw: 0, turretYaw: 0, ry: 0, faceCam: true,
     });
   });
@@ -400,30 +425,37 @@ function scene(t) {
   {
     const vis = G.inv.filter(b => b.state === 'inv');
     const cap = L.grid.cols * L.grid.rows;
+    const pressVi = (() => {
+      if (!hand.press || !hand.visible) return -1;
+      const hit = UI2D.hitInvAt(hand.x, hand.y, L.grid.cols, L.grid.rows, G.inv);
+      return hit ? (vis.findIndex(b => b.gi === hit.gi)) : -1;
+    })();
     vis.slice(0, cap).forEach((b, vi) => {
       const w = invAnchor(vi, L.grid.cols, L.grid.rows);
       const p = Wd.proj(w[0], w[1], w[2]);
       b._visGi = vi;
+      let ws = invScale;
+      if (vi === pressVi) ws *= 1 - 0.16 * hand.press; // 点击压扁
       items.push({
         id: 'inv_' + b.id, asset: 'inv_' + b.name, x: p[0], y: p[1], sx: 1, sy: 1, rot: 0, op: 1, z: 10 + vi,
-        w: [w[0], w[1], w[2]], ws: invScale, num: b.left, numOp: 1, faceCam: true,
+        w: [w[0], w[1] - (vi === pressVi ? hand.press * 0.08 : 0), w[2]], ws, num: b.left, numOp: 1, faceCam: true,
       });
     });
   }
 
   for (const b of G.balls) {
     if (!b.pos) continue;
-    // 出膛初期不画大白球（避免盖住顶面数字）；稍远后再显示
+    // 出膛初期不画大白球（避免盖住顶面数字）；稍远后再显示珍珠球
     const u = Math.min(0.98, Math.max(0.04, (t - b.t0) / Math.max(1, b.dur)));
     const p = Wd.proj(...b.pos);
-    if (u >= 0.12) {
-      const near = Math.min(1, (u - 0.12) / 0.12);
-      items.push({ id: b.id, asset: 'ball', x: p[0], y: p[1], sx: 1, sy: 1, rot: 0, op: 0.55 + 0.45 * near, z: 50, w: b.pos.slice(), ws: 0.45 + 0.3 * near });
+    if (u >= 0.08) {
+      const near = Math.min(1, (u - 0.08) / 0.1);
+      items.push({ id: b.id, asset: 'ball', x: p[0], y: p[1], sx: 1, sy: 1, rot: 0, op: 0.7 + 0.3 * near, z: 50, w: b.pos.slice(), ws: 0.65 + 0.4 * near });
     }
-    // 连续细白拖尾：炮口→当前球整段 + 重叠密段，读成广告细白线（非稀疏珠、非粗柱）
-    const addSeg = (id, ua, ub, op, z) => {
-      const a = Math.max(0, Math.min(0.99, ua)), bb = Math.max(0, Math.min(0.99, ub));
-      if (bb - a < 0.02) return;
+    // 广告：球后方半透明锥形拖尾（宽端靠后/近炮口侧，尖端贴球）— 非整段硬杆
+    const addCone = (id, ua, ub, op, thick, z) => {
+      const a = Math.max(0, Math.min(0.99, ua)), bb = Math.max(0.02, Math.min(0.99, ub));
+      if (bb - a < 0.04) return;
       const pa = b.path(a), pb = b.path(bb);
       const ddx = pb[0] - pa[0], ddy = pb[1] - pa[1], ddz = pb[2] - pa[2];
       const ll = Math.hypot(ddx, ddy, ddz) || 0.01;
@@ -432,23 +464,32 @@ function scene(t) {
       const yw = Math.atan2(ddx, -ddz);
       items.push({
         id, asset: 'trail', x: 0, y: 0, sx: 1, sy: 1, rot: 0, op, z,
-        w: mm, ws: 1, trailLen: Math.max(0.5, Math.min(5.2, ll * 0.98)), rx: pit, ry: yw, rz: 0,
+        w: mm, ws: 1, trailLen: Math.max(0.6, Math.min(4.2, ll * 1.0)), trailThick: thick, rx: pit, ry: yw, rz: 0,
       });
     };
-    // 主连续段：接近整条弹道
-    addSeg(b.id + '_tr', 0.02, u, 0.92, 49);
-    // 密叠中后段（提亮、填缝）
-    addSeg(b.id + '_tr2', Math.max(0.02, u - 0.45), u, 0.7, 48);
-    addSeg(b.id + '_tr3', Math.max(0.02, u - 0.28), u, 0.55, 47);
-    addSeg(b.id + '_tr4', Math.max(0.02, u - 0.14), u, 0.4, 46);
+    // 球身后长半透明锥（约 65% 弹道）：尖贴球、宽在后，软晕；非整段不透明硬柱
+    if (u > 0.12) {
+      const u0 = Math.max(0.02, u - 0.65);
+      addCone(b.id + '_tr', u0, u, 0.85, 0.62, 49);
+      addCone(b.id + '_trg', u0, u, 0.4, 1.05, 48);
+      addCone(b.id + '_tr2', Math.max(u0, u - 0.28), u, 0.65, 0.4, 47);
+    }
   }
 
   for (const d of G.debris) {
     const u = clamp01((t - d.t0) / S.debrisLife);
     const p = Wd.proj(...d.p);
     items.push({
-      id: d.id, asset: 'debris_' + d.color, x: p[0], y: p[1], sx: 1, sy: 1, rot: u * 4, op: 1 - u, z: 40,
-      w: d.p.slice(), ws: S.debrisSize * (1 - u * 0.4),
+      id: d.id, asset: 'debris_' + d.color, x: p[0], y: p[1], sx: 1, sy: 1, rot: u * 5, op: 1 - u * 0.85, z: 40,
+      w: d.p.slice(), ws: S.debrisSize * (1 - u * 0.35),
+    });
+  }
+  for (const d of G.sparks) {
+    const u = clamp01((t - d.t0) / d.life);
+    const p = Wd.proj(...d.p);
+    items.push({
+      id: d.id, asset: 'spark', x: p[0], y: p[1], sx: 1, sy: 1, rot: 0, op: (1 - u) * 0.85, z: 45,
+      w: d.p.slice(), ws: d.sz * (1 - u * 0.5),
     });
   }
   return items;

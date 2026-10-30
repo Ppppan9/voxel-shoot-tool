@@ -1,15 +1,14 @@
-# Remaining vs reference (v1.3.4)
+# Remaining vs reference (v1.3.5)
 
-Focus: 待选再收紧、发射数字不被白球挡、坦克更圆墩、数字更粗圆。Read firing `side_sphere_cage` / `side_watermelon` / `game_*` vs f_0001 / detail_27s.
+Focus: 子弹白色细线拖尾 + 交互动画/命中 FX. Read firing `side_sphere_cage` / `side_watermelon` / `side_diamond_cage` / `game_*` vs detail_08s / detail_14s / f_0001.
 
 ## This bump
-1. **待选收紧** — `invRowGap` −36 (−40 on 3×3), `invCell` 108, invScale ×1.28 so cubes fill cells; keep `invColGap` gutters.
-2. **发射数字可读** — tip 更靠前；数字贴顶面偏后；label `depthTest:false` + 高 renderOrder；出膛 u&lt;0.12 不画大白球（渐显）；muzzle 上前偏移。
-3. **坦克圆墩** — SH 近正方加高；hull 大圆角 0.52；更低 roughness 高光；仍单 tip + 凹槽平台 + 细绿连线。
-4. **数字字体** — 手绘粗圆角数字路径（非系统 Arial），白描边+暗阴影，顶面放置。
+1. **拖尾** — remade as soft open tapered cylinders (wide behind → tip at ball) + mid/glow shells, additive translucent; trail sits on ~65% path *behind* the pearl (not full-path opaque rods / sparse beads).
+2. **交互动画** — denser debris; white mist `sparks` on hit; brighter pearl balls (glow/halo); stronger tank recoil; inventory tap squash under hand.
+3. Kept prior UI packing / top-face digits / rounder tanks / sphere·melon gains.
 
 ## Still short of ad
-1. Inventory packing much closer; extreme ad near-overlap can still look slightly looser in some side comps.
-2. Tank silhouette rounder but not identical to ad’s softest toy blobs.
-3. Hand = toolkit finger (required), not cartoon glove.
-4. Prior sphere/trail/melon leftovers unchanged.
+1. Trails are soft tapered needles but still more geometric than ad’s softest motion-blur streaks.
+2. Impact white mist denser; brightest ad flashes still stronger.
+3. Some stills catch balls near muzzle with short trails — timing dependent.
+4. Hand = toolkit finger (required), not cartoon glove.
