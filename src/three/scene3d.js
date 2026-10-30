@@ -177,11 +177,9 @@ export function create3D(opt = {}) {
     sun.target.position.set(0, Wd.targetY, 0); scene.add(sun, sun.target);
     const fill = new THREE.DirectionalLight(0xb0c8ff, S.light3dSun * 0.32); fill.position.set(-35, 45, 55); scene.add(fill);
     statics.clear(); scene.add(statics);
-    Wd.slots.forEach(([x, z], i) => {
-      const m = new THREE.Mesh(geos(S).slot, mat(S, S.slotColor || '#152038', { name: 'mat_slot', rough: 0.75 }));
-      m.name = 'slot_' + (i + 1); m.position.set(x, Wd.slotY - 0.14, z); statics.add(m);
-    });
-    targetPivot = new THREE.Group(); targetPivot.name = 'targetPivot'; scene.add(targetPivot);
+    // 槽位改由 2D UI 绘制（对齐参考扁平条），3D 不再放槽位盘
+    targetPivot = new THREE.Group(); targetPivot.name = 'targetPivot';
+    targetPivot.position.set(0, Wd.targetY, 0); scene.add(targetPivot);
     voxMesh = L.palette.map((p) => {
       const m = new THREE.InstancedMesh(geos(S).vox, mat(S, colorHex(S, p), { name: 'mat_vox_' + p, rough: S.voxRough ?? 0.4 }), 64);
       m.name = 'voxels_' + p; m.count = 0; m.frustumCulled = false; targetPivot.add(m); return m;

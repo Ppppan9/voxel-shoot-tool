@@ -2,7 +2,7 @@
 
 ## Visual
 - Default finger: copied from mahjong / pin-rescue / arrow-escape (`src/default_hand.js`), anchor **0.2204 / 0.0367**.
-- Voxel targets, cannons, inventory blocks, balls, debris: procedural three.js (RoundedBox / Sphere). No third-party art packs.
+- Target voxels + debris: procedural three.js. Slots/cannons/inventory/balls: flat 2D canvas UI (`src/ui2d.js`) to match ad’s orthographic UI bands. No third-party art packs.
 - Reference ad frames: `ref/frames/` (for QA screenshots only; not shipped in the playable bundle).
 
 ## Audio

@@ -1,21 +1,20 @@
-# Side-by-side vs reference — remaining differences (v1.1.0)
+# Side-by-side vs reference — remaining differences (v1.2.0)
 
-Screenshots: `side_*.png` (left = REF, right = GAME). Compared after denser cages, toy tanks, face numerals, trails, camera fit.
+Compared by personally Reading `screenshots/side_*.png` + REF frames (`detail_02s` / `f_0001` for sphere; `detail_22s` ice cream; etc.).
 
-## Improved vs v1.0.0
-- Sphere/diamond: thick shell + white lat/lon ribs; denser green/white look
-- Cannons: track+hull+turret toy silhouette (from block-shooter patterns), large front numerals
-- Inventory: 4×4 / 3×3 packing, face-mounted white numbers (not badge-below)
-- Opening sphere slots L/R prefilled (~69/48 style)
-- White ball + additive trails; debris biased along hit normal
-- Title on light banner; navy `#243A63`; closer framing with full UI on canvas
-- White cage ribs hittable by any color (gameplay + ad-like chipping)
+## v1.2.0 hybrid (fixed vs rejected v1.1.0)
+- **Layout bands**: title → 3D target (upper) → flat 5-slot bar → flat 4×4/3×3 inventory (measured sphere extent ~125–759 vs REF ~90–737)
+- **Flat UI**: slots + inventory are 2D face-on toy blocks with large white numerals (not receding 3D stack)
+- **Sphere**: thin-shell multicolor globe + white lat/lon ribs; camera framed so target stays above slots
+- **Opening ammo**: sphere L/R slots show 69 / 48; inventory 2-digit counts
+- **White ribs**: hittable by any color
+- **Hand**: shown on inventory for stills
 
-## Still different (honest)
-1. **Sphere exact Rubik partition** — ad has sharper color-block regions; ours is shell+blobs, not mesh-traced.
-2. **Cannon chunkiness** — closer than v1.0 but still slightly less glossy/spherical than ad tanks.
-3. **Ice cream / house / cat / melon** — recognizable silhouettes & palette; voxel counts/proportions not pixel-matched to ad art.
-4. **Projectile trails** — present but thinner/shorter than ad motion streaks.
-5. **Hand** — toolkit default mahjong finger (required), not ad white glove; auto-solve greedy, not frame-perfect tap order.
-6. **Inventory ammo values** — planned for solvability; not identical to every ad frame’s numbers.
-7. **No ad voiceover** — synthesized SFX only.
+## Tiny leftovers (not blockers)
+1. Sphere color-patch boundaries ≠ ad’s exact Rubik partitions (procedural sectors).
+2. Cannons are flat dual-nub toy blocks, not full 3D tank meshes (intentional for flat-UI match).
+3. Ice cream / house / cat / melon silhouettes recognizable; voxel art not frame-traced.
+4. Static stills use `fireRate=0` so no projectile streaks in side_* (live play has balls+debris).
+5. Inventory ammo values solved for solvability; not identical to every ad frame.
+6. Hand = toolkit default mahjong finger (required), not ad white glove.
+7. `detail_08s` is still a sphere mid-fight; diamond preset is a styled variant, not a 1:1 mesh copy of that frame.

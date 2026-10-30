@@ -11,6 +11,7 @@ import { createAERecorder } from './ae/recorder.js';
 import { buildSprites } from './ae/sprites3d.js';
 import { export3D } from './export3d/export3d.js';
 import { exportH5PlayableFromPage, applyPlayableMode, isPlayableNoHand, applyH5DevicePresetToSettings, markH5DeviceCustomIfSizeEdited, bindEditorDevicePreview } from './h5/index.js';
+import * as UI2D from './ui2d.js';
 
 const H5_NO_HAND = isPlayableNoHand();
 let S = loadSettings();
@@ -143,33 +144,22 @@ function tapInv(gi) {
   if (si < 0) { sfx.play('error', S); status('没有空槽'); return false; }
   b.state = 'flying';
   const vis = G.inv.filter(x => x.state === 'inv' || x.gi === gi);
-  // from: current visual cell before removal
   const vi = Math.max(0, G.inv.filter(x => x.state === 'inv').findIndex(x => x.gi === gi));
-  const col = vi % L.grid.cols, row = Math.floor(vi / L.grid.cols);
-  const from = Wd.gridPos(col, row, L.grid.cols, L.grid.rows);
-  const to = slotWorld(si, now(), null);
+  const fromC = UI2D.invCellCenter(vi, L.grid.cols, L.grid.rows);
+  const toC = UI2D.muzzleOfSlot(si);
   G.flyers.push({
     id: 'fly_' + b.id, color: b.color, name: b.name, ammo: b.left, gi, si,
-    t0: now(), dur: S.flyDur, from, to: [to.x, to.y, to.z],
+    t0: now(), dur: S.flyDur,
+    from2: [fromC.x, fromC.y], to2: [toC.x, toC.y + 40],
   });
   G.inv = G.inv.filter(x => x.gi !== gi);
-  // 后面的库存前移（视觉上留下空位也行——保持原位置更贴近广告）
   sfx.play('pop', S);
   return true;
 }
 
 function hitInv(x, y) {
-  let best = -1, bd = 48 * 48;
-  const vis = G.inv.filter(b => b.state === 'inv');
-  const cap = L.grid.cols * L.grid.rows;
-  vis.slice(0, cap).forEach((b, vi) => {
-    const col = vi % L.grid.cols, row = Math.floor(vi / L.grid.cols);
-    const w = Wd.gridPos(col, row, L.grid.cols, L.grid.rows);
-    const p = Wd.proj(w[0], w[1] + 0.35, w[2]);
-    const d = (p[0] - x) ** 2 + (p[1] - y) ** 2;
-    if (d < bd) { bd = d; best = b.gi; }
-  });
-  return best;
+  const h = UI2D.hitInvAt(x, y, L.grid.cols, L.grid.rows, G.inv);
+  return h ? h.gi : -1;
 }
 
 function tapAt(x, y) {
@@ -208,41 +198,41 @@ function step(t) {
     G.flyers.splice(i, 1);
   }
 
-  // 射击
+  // 射击（平面炮口 → 目标体素屏幕投影，白球走 2D；命中仍改 3D 体素）
   for (const sh of G.slots) {
     if (!sh || sh.state !== 'slot' || sh.left <= 0) continue;
+    if (!(S.fireRate > 0)) continue;
     if (t < sh.fireNext) continue;
-    // 该色是否还有可打
     let can = false;
     for (const m of st.exp[sh.color]) if (isShootable(L, st, m)) { can = true; break; }
+    const white = L.palette.indexOf('white');
+    if (!can && white >= 0) { for (const m of st.exp[white]) if (isShootable(L, st, m)) { can = true; break; } }
     if (!can) continue;
-    const sw = slotWorld(sh.si, t, sh);
-    const muz = Wd.muzzleOf(sw.x, sw.z);
-    const tg = pickTargetLOS(sh, muz, G.rotY);
+    const muz2 = UI2D.muzzleOfSlot(sh.si);
+    const tg = pickTargetLOS(sh, [0, Wd.targetY, 0], G.rotY);
     if (!tg) continue;
     st.claimed[tg.m] = 1;
-    const len = Math.hypot(tg.p[0] - muz[0], tg.p[1] - muz[1], tg.p[2] - muz[2]);
+    const hitScr = Wd.proj(...tg.p);
+    const p0 = [muz2.x, muz2.y], p1 = [hitScr[0], hitScr[1]];
+    const dist = Math.hypot(p1[0] - p0[0], p1[1] - p0[1]);
     G.balls.push({
       id: 'ball_' + (++ballSeq), ph: 'fly', t0: t,
-      dur: Math.max(80, len / S.ballSpeed * 1000),
-      path: tg.path, m: tg.m, nrm: tg.nrm, sh, pos: muz.slice(),
+      dur: Math.max(90, dist / (S.ballSpeed * 28) * 1000),
+      p0, p1, m: tg.m, nrm: tg.nrm, sh,
+      pos2: p0.slice(),
     });
-    sh.left--; sh.fireNext = t + 1000 / S.fireRate; sh.recoil = S.recoil;
-    // 转向
-    sh.yaw = Math.atan2(tg.p[0] - muz[0], -(tg.p[2] - muz[2]));
+    sh.left--; sh.fireNext = t + 1000 / Math.max(0.1, S.fireRate); sh.recoil = S.recoil;
     playShot(t);
-    if (sh.left <= 0) {
-      sh.state = 'leaving'; sh.leaveT0 = t;
-    }
+    if (sh.left <= 0) { sh.state = 'leaving'; sh.leaveT0 = t; }
   }
 
-  // 球飞行 / 命中
+  // 球飞行 / 命中（2D）
   for (let i = G.balls.length - 1; i >= 0; i--) {
     const b = G.balls[i];
     const u = clamp01((t - b.t0) / b.dur);
-    b.pos = b.path(u);
+    const arc = -Math.sin(u * Math.PI) * 40;
+    b.pos2 = [b.p0[0] + (b.p1[0] - b.p0[0]) * u, b.p0[1] + (b.p1[1] - b.p0[1]) * u + arc];
     if (u < 1) continue;
-    // 命中
     if (st.vox[b.m]) {
       const col = st.vox[b.m] - 1;
       const name = L.palette[col];
@@ -253,7 +243,6 @@ function step(t) {
       for (let k = 0; k < S.debrisCount; k++) {
         const ang = Math.random() * Math.PI * 2, elev = 0.15 + Math.random() * 0.7;
         const sp = (0.8 + Math.random()) * S.debrisSpread * 10;
-        // 沿命中法线外飞 + 随机扰动（广告碎屑朝外飞）
         G.debris.push({
           id: 'd_' + ballSeq + '_' + k, color: name, t0: t,
           p: [wp[0] + nrm[0] * 0.2, wp[1] + nrm[1] * 0.2, wp[2] + nrm[2] * 0.2],
@@ -346,73 +335,8 @@ function voxGroups(t) {
 }
 
 function scene(t) {
+  // 3D 仅碎屑（体素走 instanced）；炮台/库存/球为 2D UI
   const items = [];
-  // 背景（2D）
-  items.push({ id: 'background', asset: 'background', x: 0, y: 0, sx: 1, sy: 1, rot: 0, op: 1, z: -100 });
-
-  // 槽位炮台
-  G.slots.forEach((sh, si) => {
-    if (!sh) return;
-    const sw = slotWorld(si, t, sh);
-    let op = 1, ws = 1, wy = sw.y;
-    if (sh.state === 'leaving') {
-      const u = clamp01((t - sh.leaveT0) / S.leaveDur);
-      op = 1 - easeOut(u); ws = 1 - 0.3 * u; wy -= u * 2;
-    }
-    const p = Wd.proj(sw.x, wy + SH.h * 0.5, sw.z);
-    items.push({
-      id: sh.id, asset: 'shooter_' + sh.name, x: p[0], y: p[1], sx: 1, sy: 1, rot: 0, op,
-      z: 20 + si, w: [sw.x, wy, sw.z], ws, num: sh.left, numOp: op,
-      bodyYaw: sh.yaw || 0, turretYaw: sh.yaw || 0, ry: 0,
-    });
-  });
-
-  // 飞入中
-  for (const f of G.flyers) {
-    const u = easeIO(clamp01((t - f.t0) / f.dur));
-    const x = f.from[0] + (f.to[0] - f.from[0]) * u;
-    const z = f.from[2] + (f.to[2] - f.from[2]) * u;
-    const y = f.from[1] + (f.to[1] - f.from[1]) * u + Math.sin(u * Math.PI) * S.flyArc;
-    const p = Wd.proj(x, y, z);
-    items.push({
-      id: f.id, asset: 'inv_' + f.name, x: p[0], y: p[1], sx: 1, sy: 1, rot: 0, op: 1, z: 30,
-      w: [x, y, z], ws: 1, num: f.ammo, numOp: 1,
-    });
-  }
-
-  // 库存（按 grid 显示；gi 重排到可见格，对齐广告 3×3/4×4）
-  {
-    const vis = G.inv.filter(b => b.state === 'inv');
-    const cap = L.grid.cols * L.grid.rows;
-    vis.slice(0, cap).forEach((b, vi) => {
-      const col = vi % L.grid.cols, row = Math.floor(vi / L.grid.cols);
-      const w = Wd.gridPos(col, row, L.grid.cols, L.grid.rows);
-      const p = Wd.proj(w[0], w[1], w[2]);
-      b._visGi = vi;
-      items.push({
-        id: 'inv_' + b.id, asset: 'inv_' + b.name, x: p[0], y: p[1], sx: 1, sy: 1, rot: 0, op: 1, z: 10 + vi,
-        w: [w[0], w[1], w[2]], ws: 1, num: b.left, numOp: 1,
-      });
-    });
-  }
-
-  // 球 + 白色运动拖尾
-  for (const b of G.balls) {
-    const p = Wd.proj(...b.pos);
-    items.push({ id: b.id, asset: 'ball', x: p[0], y: p[1], sx: 1, sy: 1, rot: 0, op: 1, z: 50, w: b.pos.slice(), ws: 1 });
-    const u = Math.min(0.95, Math.max(0.04, (now() - b.t0) / Math.max(1, b.dur)));
-    const prev = b.path(Math.max(0, u - 0.1));
-    const dx = b.pos[0] - prev[0], dy = b.pos[1] - prev[1], dz = b.pos[2] - prev[2];
-    const len = Math.hypot(dx, dy, dz) || 0.01;
-    const mid = [(b.pos[0] + prev[0]) / 2, (b.pos[1] + prev[1]) / 2, (b.pos[2] + prev[2]) / 2];
-    const pitch = Math.acos(Math.max(-1, Math.min(1, dy / len))) - Math.PI / 2;
-    const yaw = Math.atan2(dx, -dz);
-    items.push({
-      id: b.id + '_tr', asset: 'trail', x: p[0], y: p[1], sx: 1, sy: 1, rot: 0, op: 0.65, z: 49,
-      w: mid, ws: 1, trailLen: Math.min(3.5, len * 4 + 0.6), rx: pitch, ry: yaw, rz: 0,
-    });
-  }
-  // 碎屑
   for (const d of G.debris) {
     const u = clamp01((t - d.t0) / S.debrisLife);
     const p = Wd.proj(...d.p);
@@ -433,33 +357,69 @@ function draw(t) {
   const v = view();
   const items = scene(t);
   draw.items = items;
-  // 清背景
   ctx.setTransform(1, 0, 0, 1, 0, 0);
-  ctx.fillStyle = S.bgColor || '#1a2744';
+  ctx.fillStyle = S.bgColor || '#243A63';
   ctx.fillRect(0, 0, cv.width, cv.height);
 
-  // 3D
+  // 3D：仅目标体素 + 碎屑；裁到标题下~槽位上，避免压住扁平 UI
   if (r3d && !window.__no3d) {
     const img = r3d.render({ items, vox: voxGroups(t), rotY: G.rotY }, S, Math.round(DW * v.k), Math.round(DH * v.k));
-    ctx.drawImage(img, 0, v.oy, DW * v.k, DH * v.k);
+    const bandTop = 80, bandBot = 730; // 画布坐标
+    const dy = v.oy, k = v.k;
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(0, dy + bandTop * k, DW * k, (bandBot - bandTop) * k);
+    ctx.clip();
+    ctx.drawImage(img, 0, dy, DW * k, DH * k);
+    ctx.restore();
   }
 
-  // 2D 叠加：标题
   ctx.save();
   ctx.setTransform(v.k, 0, 0, v.k, 0, v.oy);
-  // 顶部标题：参考广告粗黑字（部分帧有浅底）
-  ctx.save();
-  ctx.fillStyle = 'rgba(255,255,255,0.92)';
-  const tw = S.titleSize * 6.2;
-  ctx.beginPath();
-  const ty = S.titleY;
-  ctx.roundRect(DW / 2 - tw / 2, ty - S.titleSize * 0.7, tw, S.titleSize * 1.35, 8);
-  ctx.fill();
-  ctx.fillStyle = S.titleColor || '#0a0a0a';
-  ctx.font = `900 ${S.titleSize}px "PingFang SC","Microsoft YaHei","Noto Sans CJK SC",sans-serif`;
-  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-  ctx.fillText(S.titleText || '这游戏太上头了', DW / 2, ty);
-  ctx.restore();
+
+  // 标题
+  UI2D.drawTitle(ctx, S);
+
+  // 白球 + 拖尾（2D）
+  for (const b of G.balls) {
+    const u = clamp01((t - b.t0) / b.dur);
+    const x = b.pos2[0], y = b.pos2[1];
+    const x0 = b.p0[0], y0 = b.p0[1];
+    // 拖尾
+    const g = ctx.createLinearGradient(x0, y0, x, y);
+    g.addColorStop(0, 'rgba(255,255,255,0)');
+    g.addColorStop(1, 'rgba(255,255,255,0.75)');
+    ctx.strokeStyle = g; ctx.lineWidth = 10; ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x, y); ctx.stroke();
+    ctx.fillStyle = '#fff';
+    ctx.beginPath(); ctx.arc(x, y, 11, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = 'rgba(255,255,255,0.45)';
+    ctx.beginPath(); ctx.arc(x - 2, y - 3, 18, 0, Math.PI * 2); ctx.fill();
+  }
+
+  // 飞入动画（库存→槽）
+  for (const f of G.flyers) {
+    const u = easeIO(clamp01((t - f.t0) / f.dur));
+    const x = f.from2[0] + (f.to2[0] - f.from2[0]) * u;
+    const y = f.from2[1] + (f.to2[1] - f.from2[1]) * u - Math.sin(u * Math.PI) * 80;
+    const hex = colorHex(S, f.name);
+    // reuse mini block
+    const s = 70;
+    ctx.save();
+    // simple block
+    const grd = ctx.createLinearGradient(x - s/2, y - s/2, x - s/2, y + s/2);
+    grd.addColorStop(0, hex); grd.addColorStop(1, hex);
+    ctx.fillStyle = hex;
+    ctx.beginPath(); ctx.roundRect(x - s/2, y - s/2, s, s, 16); ctx.fill();
+    ctx.font = '900 28px Arial Black,sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.lineWidth = 6; ctx.strokeStyle = '#101018'; ctx.strokeText(String(f.ammo), x, y);
+    ctx.fillStyle = '#fff'; ctx.fillText(String(f.ammo), x, y);
+    ctx.restore();
+  }
+
+  // 平面槽位 + 库存（关键：对齐参考扁平 UI）
+  UI2D.drawSlotsBar(ctx, S, G.slots, t);
+  UI2D.drawInventory(ctx, S, G.inv, L.grid.cols, L.grid.rows);
 
   // 波纹
   for (const r of ripples) {
@@ -467,7 +427,6 @@ function draw(t) {
     ctx.beginPath(); ctx.arc(r.x, r.y, 20 + u * 40, 0, Math.PI * 2);
     ctx.strokeStyle = `rgba(255,255,255,${1 - u})`; ctx.lineWidth = 3; ctx.stroke();
   }
-  // 过滤过期 ripple
   for (let i = ripples.length - 1; i >= 0; i--) if (t - ripples[i].t0 > 400) ripples.splice(i, 1);
 
   if (S.discShow) {
@@ -477,7 +436,6 @@ function draw(t) {
     ctx.globalAlpha = 1;
   }
 
-  // 通关/失败字
   if (finishedAt || failedAt) {
     const e = finishedAt || failedAt;
     const a = Math.min(1, (t - e) / 300);
@@ -502,7 +460,6 @@ function draw(t) {
     ctx.globalAlpha = 1;
   }
 
-  // 手指
   const hs = handState();
   if (hs && hand.img) drawHand(ctx, hs);
   ctx.restore();
@@ -586,10 +543,8 @@ function nextAuto() {
   if (!best) return null;
   const vis = G.inv.filter(b => b.state === 'inv');
   const vi = Math.max(0, vis.indexOf(best));
-  const col = vi % L.grid.cols, row = Math.floor(vi / L.grid.cols);
-  const w = Wd.gridPos(col, row, L.grid.cols, L.grid.rows);
-  const p = Wd.proj(w[0], w[1] + 0.3, w[2]);
-  return { gi: best.gi, x: p[0] + rr(-S.jitter, S.jitter), y: p[1] + rr(-S.jitter, S.jitter) };
+  const c = UI2D.invCellCenter(vi, L.grid.cols, L.grid.rows);
+  return { gi: best.gi, x: c.x + rr(-S.jitter, S.jitter), y: c.y + rr(-S.jitter, S.jitter) };
 }
 async function autoSolve() {
   if (autoRunning) { autoToken++; autoRunning = false; updAutoBtn(); return; }
@@ -805,9 +760,8 @@ window.__game = {
   invScreen: gi => {
     const vis = G.inv.filter(b => b.state === 'inv');
     const vi = Math.max(0, vis.findIndex(b => b.gi === gi));
-    const col = vi % L.grid.cols, row = Math.floor(vi / L.grid.cols);
-    const w = Wd.gridPos(col, row, L.grid.cols, L.grid.rows);
-    return Wd.proj(w[0], w[1], w[2]);
+    const c = UI2D.invCellCenter(vi, L.grid.cols, L.grid.rows);
+    return [c.x, c.y];
   },
 };
 

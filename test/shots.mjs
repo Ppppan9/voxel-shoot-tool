@@ -29,14 +29,34 @@ const pairs = [
   ['watermelon', 'detail_27s.png'],
 ];
 for (const [lv, refName] of pairs) {
-  await p.evaluate(lv => { __game.set('level', lv); __game.set('startSlots', 2); __game.newGame(); }, lv);
+  await p.evaluate(lv => {
+    __game.set('level', lv);
+    __game.set('startSlots', 2);
+    __game.set('fireRate', 0);
+    __game.set('targetRotSpeed', 14);
+    __game.set('handShow', true);
+    __game.set('handRest', false);
+    __game.set('manualHand', true);
+    __game.newGame();
+  }, lv);
   await p.evaluate(async () => {
+    // 把手指放到库存第一格（对齐参考广告引导）
+    try {
+      const vis = __game.G.inv.filter(b => b.state === 'inv');
+      if (vis.length) {
+        const c = __game.invScreen(vis[0].gi);
+        __game.hand.visible = true;
+        __game.hand.x = c[0]; __game.hand.y = c[1];
+        __game.S.handShow = true; __game.S.handRest = false;
+      }
+    } catch (e) {}
     let t = performance.now();
-    for (let i = 0; i < 50; i++) { t += 33; __game.renderAt(t); await new Promise(r => setTimeout(r, 0)); }
+    for (let i = 0; i < 16; i++) { t += 33; __game.renderAt(t); await new Promise(r => setTimeout(r, 0)); }
     window.__vclock = null;
   });
-  await p.waitForTimeout(150);
-  fs.writeFileSync(`screenshots/game_${lv}.png`, await p.locator('#stage').screenshot());
+  await p.waitForTimeout(80);
+  const gameB64 = await p.evaluate(() => document.getElementById('stage').toDataURL('image/png'));
+  fs.writeFileSync(`screenshots/game_${lv}.png`, Buffer.from(gameB64.split(',')[1], 'base64'));
   const ref = path.join(root, 'ref/frames', refName);
   if (fs.existsSync(ref)) {
     const side = await p.evaluate(async ([refUrl, name]) => {

@@ -1,10 +1,10 @@
 import { DEFAULT_HAND } from './default_hand.js';
 import { h5DeviceSelectOptions } from './h5/index.js';
 import { PRESET_ORDER } from './level.js';
-export const SETTINGS_VERSION = 2;
+export const SETTINGS_VERSION = 4;
 export const STORE_KEY = 'voxelShootTool.settings';
 export const APP_ID = 'voxel-shoot-tool';
-export const APP_VERSION = '1.1.0';
+export const APP_VERSION = '1.2.0';
 
 const levelOpts = [
   ...PRESET_ORDER.map(id => [id, ({
@@ -20,10 +20,10 @@ export const GROUPS = [
     ['canvasH', '画布高度(px)', 'range', 1280, 640, 2560, 2],
     ['level', '关卡', 'select', 'sphere_cage', levelOpts],
     ['seed', '随机种子', 'range', 1, 1, 9999, 1],
-    ['maxAmmo', '单块最多弹药', 'range', 120, 10, 200, 1],
+    ['maxAmmo', '单块最多弹药', 'range', 88, 10, 200, 1],
     ['ammoStep', '弹药取整步长', 'range', 5, 1, 20, 1],
     ['startSlots', '开局预填槽位数', 'range', 2, 0, 5, 1],
-    ['voxScale', '体素整体缩放', 'range', 0.82, 0.5, 1.8, 0.01],
+    ['voxScale', '体素整体缩放', 'range', 0.62, 0.3, 1.8, 0.01],
     ['targetRotSpeed', '目标旋转速度(°/秒)', 'range', 18, 0, 90, 1],
   ]],
   ['外观', [
@@ -56,14 +56,14 @@ export const GROUPS = [
     ['invScale', '库存块缩放', 'range', 1.2, 0.6, 2.2, 0.01],
   ]],
   ['3D 渲染', [
-    ['cam3dFov', '相机 FOV(°)', 'range', 42, 8, 60, 0.5],
+    ['cam3dFov', '相机 FOV(°)', 'range', 30, 8, 60, 0.5],
     ['cam3dX', '相机 X', 'range', 0, -40, 40, 0.1],
-    ['cam3dY', '相机 Y', 'range', 18.5, 2, 40, 0.1],
-    ['cam3dZ', '相机 Z', 'range', 27.5, 5, 50, 0.1],
+    ['cam3dY', '相机 Y', 'range', 11, 2, 40, 0.1],
+    ['cam3dZ', '相机 Z', 'range', 35, 5, 50, 0.1],
     ['cam3dTX', '目标 X', 'range', 0, -20, 20, 0.1],
-    ['cam3dTY', '目标 Y', 'range', 6.2, -5, 20, 0.1],
-    ['cam3dTZ', '目标 Z', 'range', 5.5, -10, 20, 0.1],
-    ['targetY', '体素中心高度', 'range', 10.8, 2, 14, 0.1],
+    ['cam3dTY', '目标 Y', 'range', 7.0, -5, 20, 0.1],
+    ['cam3dTZ', '目标 Z', 'range', 0, -10, 20, 0.1],
+    ['targetY', '体素中心高度', 'range', 9.5, 2, 14, 0.1],
     ['slotY', '槽位高度', 'range', 1.05, 0, 4, 0.05],
     ['slotZ', '槽位纵深 Z', 'range', 6.6, 2, 14, 0.05],
     ['slotSpan', '槽位总跨度', 'range', 10.8, 4, 16, 0.1],
@@ -204,13 +204,21 @@ export function migrate(obj) {
     mv('handImg', 'handImage'); mv('sfxVol', 'sfxVolume'); mv('sfx', 'sfxMute', x => !x);
     v = 1;
   }
-  // v2：视觉对齐参考广告 — 仍等于旧默认才替换
   const OLD = {
     2: {
       bgColor: '#1a2744', cam3dFov: 42, cam3dY: 18, cam3dZ: 28, cam3dTY: 3.5, cam3dTZ: 5,
       targetY: 9.2, slotZ: 8.5, invZ: 12.5, invCell: 1.4, voxScale: 0.75, invScale: 1.2,
       col_green: '#6fdc3a', titleSize: 42, ballR: 0.28, debrisCount: 10,
     },
+    3: {
+      cam3dFov: 42, cam3dY: 18.5, cam3dZ: 27.5, cam3dTY: 6.2, cam3dTZ: 5.5,
+      targetY: 10.8, voxScale: 0.82,
+    },
+    4: {
+      cam3dFov: 32, cam3dY: 12.5, cam3dZ: 28, cam3dTY: 9.5, cam3dTZ: 0,
+      targetY: 9.5, voxScale: 1.0, maxAmmo: 120,
+    },
+    // note: v4 also introduces flat UI; cam defaults changed in DEFS
   };
   for (const nv of Object.keys(OLD).map(Number).sort((a,b)=>a-b)) if (v < nv) {
     for (const k in OLD[nv]) if (s[k] === OLD[nv][k]) delete s[k];

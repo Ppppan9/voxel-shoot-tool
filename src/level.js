@@ -29,45 +29,42 @@ function fillEllipsoid(L, cx, cy, cz, rx, ry, rz, c, solid = true) {
 
 // —— 笼球：实心球 + 白经纬肋（参考 Rubik 风格分区）——
 export function shapeSphereCage(o = {}) {
-  const R = o.R || 10, W = R * 2 + 1, H = R * 2 + 1, D = R * 2 + 1;
-  const L = empty(W, H, D, ['white', 'green', 'red', 'yellow', 'blue', 'orange']);
+  // 参考 detail_02s：圆多色地球仪 + 细白经纬笼肋；薄壳无实心核，体素数可控
+  const R = o.R || 8, W = R * 2 + 1, H = R * 2 + 1, D = R * 2 + 1;
+  const L = empty(W, H, D, ['white', 'green', 'yellow', 'orange', 'red', 'blue']);
   const cx = R, cy = R, cz = R;
-  const wh = palIndex(L, 'white'), gr = palIndex(L, 'green'), rd = palIndex(L, 'red');
-  const yl = palIndex(L, 'yellow'), bl = palIndex(L, 'blue'), or = palIndex(L, 'orange');
-  const shell = R - 2.4;
-  const blobs = [
-    [gr, -2.5, 3.5, 1.5, 4.8], [gr, 3, -1, -3, 4.2], [gr, 0, 0, 0, 3.5],
-    [rd, 5, 1.5, 2, 3.4], [yl, -4, -2, 2.5, 3.2], [bl, 2.5, 2, -5, 3.0],
-    [or, -1, -4.5, -1, 2.8], [rd, -3, 1, 5, 2.6], [yl, 4, -3.5, 1, 2.7],
-  ];
+  const wh = palIndex(L, 'white'), gr = palIndex(L, 'green'), yl = palIndex(L, 'yellow');
+  const or = palIndex(L, 'orange'), rd = palIndex(L, 'red'), bl = palIndex(L, 'blue');
+  const shellIn = R - 1.45;
+  // 正面朝相机 (+Z → lon=π/2)。斑块按经纬格子填色，模拟参考「笼格内色块」
+  const sector = (lon, lat) => {
+    const f = ((lon - Math.PI / 2 + Math.PI * 3) % (Math.PI * 2)) - Math.PI; // 相对正面 -π..π
+    // 经度格 0..7，纬度格 0..5
+    const gi = Math.floor(((f + Math.PI) / (Math.PI * 2)) * 8) % 8;
+    const gj = Math.floor(((lat + Math.PI / 2) / Math.PI) * 6);
+    const table = [
+      [gr, gr, yl, or, rd, gr, yl, gr],
+      [gr, yl, yl, or, rd, bl, gr, gr],
+      [yl, yl, or, or, rd, rd, gr, yl],
+      [gr, or, or, rd, bl, gr, yl, gr],
+      [gr, gr, yl, or, gr, gr, or, gr],
+      [or, or, gr, gr, yl, or, gr, or],
+    ];
+    const row = table[Math.max(0, Math.min(5, gj))];
+    return row[gi];
+  };
   for (let j = 0; j < H; j++) for (let i = 0; i < W; i++) for (let k = 0; k < D; k++) {
     const x = i - cx, y = j - cy, z = k - cz;
     const r2 = x * x + y * y + z * z;
-    if (r2 > (R + 0.12) ** 2) continue;
-    const onShell = r2 >= shell * shell;
-    let place = onShell;
-    let c = gr;
-    if (!onShell) {
-      for (const [bc, bx, by, bz, br] of blobs) {
-        const dx = x - bx, dy = y - by, dz = z - bz;
-        if (dx * dx + dy * dy + dz * dz <= br * br) { place = true; c = bc; break; }
-      }
-      if (!place) continue;
-    } else {
-      const lon = Math.atan2(z, x);
-      const lat = Math.asin(Math.max(-1, Math.min(1, y / Math.max(0.01, Math.sqrt(r2)))));
-      if (lat > 0.5) c = gr;
-      else if (lat < -0.4) c = or;
-      else if (lon > 1.1 && lon < 2.3) c = rd;
-      else if (lon < -1.4) c = yl;
-      else if (lon > 0.25 && lon < 1.0) c = bl;
-      else if (lon > -0.5 && lon < 0.25) c = yl;
-      else c = gr;
-      // 白经纬肋（表面）
-      const onLon = Math.abs(((lon / (Math.PI / 4)) % 1 + 1) % 1) < 0.11 || Math.abs(((lon / (Math.PI / 4)) % 1 + 1) % 1 - 1) < 0.11;
-      const onLat = Math.abs(lat) < 0.09 || Math.abs(Math.abs(lat) - 0.52) < 0.08 || Math.abs(Math.abs(lat) - 1.0) < 0.07;
-      if (onLon || onLat) c = wh;
-    }
+    if (r2 > (R + 0.2) ** 2 || r2 < shellIn * shellIn) continue;
+    const r = Math.sqrt(r2) || 0.001;
+    const lon = Math.atan2(z, x), lat = Math.asin(Math.max(-1, Math.min(1, y / r)));
+    let c = sector(lon, lat);
+    // 细白经纬肋：每 45° + 赤道/南北回归线，宽 ~0.7 体素（参考细肋）
+    const lonBand = Math.abs(((lon / (Math.PI / 4)) % 1 + 1) % 1);
+    const onLon = lonBand < 0.07 || lonBand > 0.93;
+    const onLat = Math.abs(lat) < 0.055 || Math.abs(Math.abs(lat) - 0.5) < 0.055 || Math.abs(Math.abs(lat) - 0.95) < 0.06;
+    if ((onLon || onLat) && r2 > (R - 1.15) ** 2) c = wh;
     set(L, i, j, k, c);
   }
   L.id = 'sphere_cage'; L.title = '笼球'; L.gridPref = { cols: 4, rows: 4 }; L.startAmmo = [69, null, null, null, 48];
@@ -75,28 +72,32 @@ export function shapeSphereCage(o = {}) {
 }
 
 export function shapeDiamondCage(o = {}) {
-  const R = o.R || 8, W = R * 2 + 1, H = R * 2 + 1, D = R * 2 + 1;
+  // 参考 detail_08s：圆角彩块立方 + 稀疏白笼肋（非白壳）
+  const R = o.R || 7, W = R * 2 + 1, H = R * 2 + 1, D = R * 2 + 1;
   const L = empty(W, H, D, ['white', 'red', 'yellow', 'blue', 'orange', 'green']);
   const cx = R, cy = R, cz = R;
   const wh = palIndex(L, 'white');
   const cols = ['red', 'yellow', 'blue', 'orange', 'green'].map(n => palIndex(L, n));
+  const shellIn = 0.72;
   for (let j = 0; j < H; j++) for (let i = 0; i < W; i++) for (let k = 0; k < D; k++) {
     const x = Math.abs(i - cx), y = Math.abs(j - cy), z = Math.abs(k - cz);
-    // 超椭圆圆角立方
-    const m = Math.pow(x / R, 2.6) + Math.pow(y / R, 2.6) + Math.pow(z / R, 2.6);
-    if (m > 1.05) continue;
-    const cell = Math.floor(i / 3) + Math.floor(j / 3) * 3 + Math.floor(k / 3) * 9;
+    const m = Math.pow(x / R, 2.4) + Math.pow(y / R, 2.4) + Math.pow(z / R, 2.4);
+    if (m > 1.02 || m < shellIn) continue; // 空心薄壳
+    // 大色块分区（每边约 2~3 格）
+    const cell = Math.floor(i / 4) + Math.floor(j / 4) * 3 + Math.floor(k / 4) * 7;
     set(L, i, j, k, cols[Math.abs(cell) % cols.length]);
   }
-  // 白框：每 3 格一条肋（表面）
+  // 白肋：仅表面、每 4 格一条，且只画「边线」避免吞掉彩块
   for (let j = 0; j < H; j++) for (let i = 0; i < W; i++) for (let k = 0; k < D; k++) {
     if (!get(L, i, j, k)) continue;
     const x = Math.abs(i - cx), y = Math.abs(j - cy), z = Math.abs(k - cz);
-    const m = Math.pow(x / R, 2.6) + Math.pow(y / R, 2.6) + Math.pow(z / R, 2.6);
-    if (m < 0.78) continue;
-    if (i % 3 === 0 || j % 3 === 0 || k % 3 === 0) set(L, i, j, k, wh);
+    const m = Math.pow(x / R, 2.4) + Math.pow(y / R, 2.4) + Math.pow(z / R, 2.4);
+    if (m < 0.88) continue;
+    const onRib = (i % 4 === 0) + (j % 4 === 0) + (k % 4 === 0);
+    if (onRib === 1) set(L, i, j, k, wh); // 单轴肋，避免交叉面全白
   }
   L.id = 'diamond_cage'; L.title = '笼方'; L.gridPref = { cols: 4, rows: 4 };
+  L.startAmmo = [55, null, 40, null, 48];
   return trimUnused(L);
 }
 
@@ -260,33 +261,58 @@ export function planInventory(L, o = {}) {
   const counts = countColor(L);
   const r = rng(o.seed || 1);
   const maxAmmo = o.maxAmmo || 88, step = o.ammoStep || 5;
-  const prefer = [80, 60, 50, 40, 65, 44, 88, 75, 70, 48, 69];
-  const targetBlocks = o.targetBlocks || 16; // 广告一屏约 3×3~4×4
-  const blocks = []; let id = 0;
-  // 先按色切块，再合并到约 targetBlocks
+  const prefer = [60, 50, 40, 65, 44, 75, 70, 48, 69, 80, 55, 88];
+  const targetBlocks = o.targetBlocks || 16;
+  const whiteIdx = L.palette.indexOf('white');
+  // 白色笼肋可被任意色击破 → 弹药并入彩色块，不占库存格
+  const colorNeeds = [];
+  let whiteBonus = 0;
   counts.forEach((need, c) => {
+    if (c === whiteIdx) whiteBonus += need;
+    else if (need > 0) colorNeeds.push({ c, need, name: L.palette[c] });
+  });
+  const blocks = []; let id = 0;
+  for (const { c, need, name } of colorNeeds) {
     let left = need;
     while (left > 0) {
       let ammo = prefer[Math.floor(r() * prefer.length)];
-      ammo = Math.min(maxAmmo, Math.max(step, Math.min(ammo, left + Math.floor(r() * 12))));
-      if (ammo > left && left >= step) ammo = Math.max(step, Math.floor(left / step) * step) || left;
+      ammo = Math.min(maxAmmo, Math.max(step, Math.min(ammo, left)));
       if (ammo > left) ammo = left;
-      blocks.push({ color: c, ammo, id: id++, name: L.palette[c] });
+      // 取整到 step（末块除外）
+      if (left - ammo >= step) ammo = Math.max(step, Math.floor(ammo / step) * step);
+      blocks.push({ color: c, ammo, id: id++, name });
       left -= ammo;
     }
-  });
-  // 合并同色直到数量接近 targetBlocks（保证总和弹药不变 → 仍可解）
+  }
+  // 白色加成均摊，但单块不超过 maxAmmo；放不下则新开同色块
+  if (whiteBonus > 0 && blocks.length) {
+    let i = 0;
+    while (whiteBonus > 0) {
+      const b = blocks[i % blocks.length];
+      const room = maxAmmo - b.ammo;
+      if (room >= step) {
+        const add = Math.min(room, whiteBonus, step * (1 + (r() * 3 | 0)));
+        b.ammo += add; whiteBonus -= add;
+      } else {
+        // 开新块
+        blocks.push({ color: b.color, ammo: Math.min(maxAmmo, whiteBonus), id: id++, name: b.name });
+        whiteBonus -= Math.min(maxAmmo, whiteBonus);
+      }
+      i++;
+      if (i > 10000) break;
+    }
+  }
+  // 合并同色且 sum≤maxAmmo，逼近 targetBlocks
   while (blocks.length > targetBlocks) {
-    // 找两个同色合并
     let merged = false;
     for (let i = 0; i < blocks.length && !merged; i++) for (let j = i + 1; j < blocks.length; j++) {
       if (blocks[i].color !== blocks[j].color) continue;
       const sum = blocks[i].ammo + blocks[j].ammo;
-      if (sum > maxAmmo * 1.5) continue;
-      blocks[i].ammo = sum; // 保留总弹药（可超过 maxAmmo 显示）
+      if (sum > maxAmmo) continue;
+      blocks[i].ammo = sum;
       blocks.splice(j, 1); merged = true; break;
     }
-    if (!merged) break;
+    if (!merged) break; // 无法再合也不强行超 cap
   }
   for (let i = blocks.length - 1; i > 0; i--) { const j = Math.floor(r() * (i + 1)); [blocks[i], blocks[j]] = [blocks[j], blocks[i]]; }
   return blocks;
