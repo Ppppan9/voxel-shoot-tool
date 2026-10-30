@@ -60,9 +60,9 @@ export function shapeSphereCage(o = {}) {
     let c = cellColor(lon, lat);
     // 白笼肋：每 45° 经线 + 赤道/南北纬，略厚一点像广告
     const lonBand = Math.abs(((lon / (Math.PI / 4)) % 1 + 1) % 1);
-    const onLon = lonBand < 0.075 || lonBand > 0.925;
-    const onLat = Math.abs(lat) < 0.06 || Math.abs(Math.abs(lat) - 0.52) < 0.055;
-    if ((onLon || onLat) && r2 > (R - 1.2) ** 2) c = wh;
+    const onLon = lonBand < 0.1 || lonBand > 0.9;
+    const onLat = Math.abs(lat) < 0.08 || Math.abs(Math.abs(lat) - 0.5) < 0.07;
+    if ((onLon || onLat) && r2 > (R - 1.35) ** 2) c = wh;
     set(L, i, j, k, c);
   }
   L.id = 'sphere_cage'; L.title = '笼球'; L.gridPref = { cols: 4, rows: 4 }; L.startAmmo = [69, null, null, null, 48];
@@ -193,29 +193,24 @@ export function shapeIceCream(o = {}) {
 }
 
 export function shapeWatermelon(o = {}) {
-  // detail_27s：鼓起的半个西瓜，切口朝前略上，绿皮/奶油/红瓤/黑籽
-  const W = 26, H = 18, D = 20;
+  // detail_27s：红瓤切面朝相机（+worldZ = 小 k），绿皮在后
+  const W = 25, H = 25, D = 12;
   const L = empty(W, H, D, ['green', 'cream', 'red', 'black']);
   const gr = palIndex(L, 'green'), cr = palIndex(L, 'cream'), rd = palIndex(L, 'red'), bk = palIndex(L, 'black');
-  const cx = 13, cy = 5, cz = 9;
-  const tilt = 0.55;
-  const ct = Math.cos(tilt), st = Math.sin(tilt);
+  const cx = (W - 1) / 2, cy = (H - 1) / 2, cz = (D - 1) / 2;
+  const Rx = 11.2, Ry = 11.2, Rz = 4.2;
   for (let j = 0; j < H; j++) for (let i = 0; i < W; i++) for (let k = 0; k < D; k++) {
-    const x = (i - cx) / 11.0;
-    const y0 = (j - cy) / 8.0;
-    const z0 = (k - cz) / 9.0;
-    const y = y0 * ct - z0 * st;
-    const z = y0 * st + z0 * ct;
-    if (z < -0.02) continue;
-    const r2 = x * x + y * y + z * z;
-    if (r2 > 1.12) continue;
-    // 实心半瓜（鼓起体积），外皮薄
-    if (r2 > 0.88) { set(L, i, j, k, gr); continue; }
-    if (r2 > 0.78) { set(L, i, j, k, cr); continue; }
+    const x = (i - cx) / Rx, y = (j - cy) / Ry, z = (k - cz) / Rz;
+    const r2 = x * x + y * y;
+    if (r2 > 1.02 || Math.abs(z) > 1.05) continue;
+    const edge = Math.sqrt(r2);
+    // 注意：worldZ = -(k-cz)*vs → 小 k（z 小）朝相机
+    // 后侧（大 k / z 大）与外缘 → 绿皮
+    if (z > 0.35 || edge > 0.88) { set(L, i, j, k, gr); continue; }
+    if (edge > 0.78 || (z > 0.15 && edge > 0.65)) { set(L, i, j, k, cr); continue; }
     set(L, i, j, k, rd);
-    // 籽：切口层密集
-    if (z > 0.02 && z < 0.55 && r2 < 0.65) {
-      const s = (i * 5 + k * 9 + j * 3) % 9;
+    if (z < 0.15 && edge < 0.7) {
+      const s = (i * 5 + j * 7 + k * 3) % 8;
       if (s === 0 || s === 4) set(L, i, j, k, bk);
     }
   }

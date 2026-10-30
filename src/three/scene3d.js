@@ -69,47 +69,46 @@ export function numberTexture(n) {
 
 // 广告风玩具炮台：敦实圆角块 + 半球炮塔 + 短上仰炮管 + 正面大白数字（借 block-shooter 分体结构）
 export function makeShooter(S, color, Wd) {
-  const hex = colorHex(S, color), dark = shade(hex, 0.72), lite = shade(hex, 1.12);
+  // 广告感：圆润高光玩具坦克（一体敦实圆角体，弱履带线，短双炮口）
+  const hex = colorHex(S, color), dark = shade(hex, 0.78), lite = shade(hex, 1.14);
   const { w, d, h } = Wd.SH;
   const G = new THREE.Group(); G.name = 'shooter_' + color;
   const body = new THREE.Group(); body.name = 'body';
   const upper = new THREE.Group(); upper.name = 'upper';
-  const tankR = S.tankRough ?? 0.42;
-  const rb = (W2, H2, D2, r) => new RoundedBoxGeometry(W2, H2, D2, 3, r);
+  const tankR = Math.min(0.55, (S.tankRough ?? 0.38));
+  const rb = (W2, H2, D2, r) => new RoundedBoxGeometry(W2, H2, D2, 4, r);
 
-  // 左右履带感（敦实）
-  const trackG = rb(w * 0.28, h * 0.42, d * 1.02, 0.18);
+  // 主体：接近正方的大圆角块（广告主轮廓）
+  const hull = new THREE.Mesh(rb(w * 0.92, h * 0.78, d * 0.92, 0.34), mat(S, hex, { rough: tankR }));
+  hull.name = 'hull'; hull.position.set(0, h * 0.42, 0); body.add(withOutline(hull, S));
+  // 顶面高光盖
+  const cap = new THREE.Mesh(rb(w * 0.72, h * 0.14, d * 0.72, 0.16), mat(S, lite, { rough: tankR - 0.08 }));
+  cap.name = 'cap'; cap.position.set(0, h * 0.78, 0); body.add(cap);
+  // 弱履带：两侧细条，不抢主体
+  const trackG = rb(w * 0.14, h * 0.28, d * 0.88, 0.12);
   for (const sx of [-1, 1]) {
-    const t = new THREE.Mesh(trackG, mat(S, dark, { rough: tankR + 0.08 }));
-    t.name = sx < 0 ? 'track_L' : 'track_R';
-    t.position.set(sx * w * 0.4, h * 0.22, 0);
-    body.add(withOutline(t, S));
+    const tr = new THREE.Mesh(trackG, mat(S, dark, { rough: tankR + 0.1 }));
+    tr.name = sx < 0 ? 'track_L' : 'track_R';
+    tr.position.set(sx * w * 0.46, h * 0.22, 0);
+    body.add(tr);
   }
-  // 车身
-  const hull = new THREE.Mesh(rb(w * 0.78, h * 0.58, d * 0.9, 0.26), mat(S, hex, { rough: tankR }));
-  hull.name = 'hull'; hull.position.set(0, h * 0.48, 0.02); body.add(withOutline(hull, S));
-  // 顶盖亮面
-  const cap = new THREE.Mesh(rb(w * 0.62, h * 0.16, d * 0.7, 0.14), mat(S, lite, { rough: tankR - 0.05 }));
-  cap.name = 'cap'; cap.position.set(0, h * 0.82, 0.02); body.add(cap);
-
-  // 敦实顶盖炮塔（少「青蛙眼」感，贴近广告玩具坦克）
-  const tur = new THREE.Mesh(rb(w * 0.55, h * 0.32, d * 0.55, 0.2), mat(S, hex, { rough: tankR }));
-  tur.name = 'turret'; tur.position.set(0, h * 0.92, 0.02);
-  upper.add(withOutline(tur, S));
-  // 双短炮管上仰
-  for (const sx of [-0.22, 0.22]) {
-    const bar = new THREE.Mesh(new THREE.CylinderGeometry(0.14, 0.18, d * 0.42, 12), mat(S, lite, { rough: tankR }));
-    bar.name = 'barrel'; bar.rotation.x = -Math.PI / 2 + 0.5; bar.position.set(sx * w, h * 1.05, -d * 0.12);
-    upper.add(withOutline(bar, S));
+  // 短双炮口（白头）
+  for (const sx of [-0.18, 0.18]) {
+    const bar = new THREE.Mesh(new THREE.CylinderGeometry(0.11, 0.14, d * 0.28, 12), mat(S, hex, { rough: tankR }));
+    bar.rotation.x = -Math.PI / 2 + 0.55;
+    bar.position.set(sx * w, h * 0.88, -d * 0.22);
+    upper.add(bar);
+    const tip = new THREE.Mesh(new THREE.SphereGeometry(0.13, 12, 10), mat(S, '#ffffff', { rough: 0.25 }));
+    tip.position.set(sx * w, h * 0.98, -d * 0.38);
+    upper.add(tip);
   }
-
-  // 数字：贴在车身正面（大号）
+  // 正面大号数字
   const lab = new THREE.Mesh(
-    new THREE.PlaneGeometry(w * 0.95, h * 0.55),
+    new THREE.PlaneGeometry(w * 0.88, h * 0.5),
     new THREE.MeshBasicMaterial({ map: numberTexture(0), transparent: true, depthWrite: false, depthTest: true })
   );
   lab.name = 'label'; lab.renderOrder = 6;
-  lab.position.set(0, h * 0.5, d * 0.48);
+  lab.position.set(0, h * 0.45, d * 0.48);
   upper.add(lab);
 
   G.add(body, upper);
@@ -160,11 +159,18 @@ export function makeBall(S) {
 // 运动拖尾：拉长半透明白胶囊
 export function makeTrail(S) {
   const g = new THREE.Group(); g.name = 'trail';
+  // 广告细白拖尾：细长半透明锥
   const m = new THREE.Mesh(
-    new THREE.CylinderGeometry(0.06, 0.18, 1, 10),
-    new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.45, depthWrite: false, blending: THREE.AdditiveBlending })
+    new THREE.CylinderGeometry(0.02, 0.07, 1, 8),
+    new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.55, depthWrite: false, blending: THREE.AdditiveBlending })
   );
-  m.name = 'trail_core'; g.add(m); return g;
+  m.name = 'trail_core'; g.add(m);
+  const tip = new THREE.Mesh(
+    new THREE.SphereGeometry(0.08, 10, 8),
+    new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.85, depthWrite: false, blending: THREE.AdditiveBlending })
+  );
+  tip.position.y = 0.5; g.add(tip);
+  return g;
 }
 
 export function create3D(opt = {}) {
@@ -206,7 +212,11 @@ export function create3D(opt = {}) {
       m.count = list.length; m.instanceMatrix.needsUpdate = true;
     });
   }
-  function setTargetRot(ry) { if (targetPivot) targetPivot.rotation.y = ry; }
+  function setTargetRot(ry, rx) {
+    if (!targetPivot) return;
+    targetPivot.rotation.y = ry;
+    targetPivot.rotation.x = rx != null ? rx : (S0?.targetTiltX || 0);
+  }
   function getObj(it) {
     let o = pool.get(it.id);
     if (o && o.asset !== it.asset) { scene.remove(o.obj); pool.delete(it.id); o = null; }
@@ -243,7 +253,7 @@ export function create3D(opt = {}) {
       const s = it.ws ?? 1;
       if (it.asset === 'ball') ob.scale.setScalar(S.ballR * s);
       else if (it.asset === 'trail') {
-        ob.scale.set(s * 0.9, it.trailLen || 1.5, s * 0.9);
+        ob.scale.set(s * 0.35, it.trailLen || 1.2, s * 0.35);
         if (it.trailQuat) ob.quaternion.copy(it.trailQuat);
       }
       else if (it.asset.startsWith('debris')) ob.scale.setScalar(s);
@@ -273,7 +283,7 @@ export function create3D(opt = {}) {
   function render(frame, S, w, h) {
     if (!renderer) { renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, preserveDrawingBuffer: true }); renderer.outputColorSpace = THREE.SRGBColorSpace; renderer.setClearColor(0x000000, 0); }
     if (renderer.domElement.width !== w || renderer.domElement.height !== h) renderer.setSize(w, h, false);
-    if (frame.rotY != null) setTargetRot(frame.rotY);
+    if (frame.rotY != null) setTargetRot(frame.rotY, frame.rotX);
     if (frame.vox) setVoxels(frame.vox);
     apply(frame.items, S);
     renderer.render(scene, camera); return renderer.domElement;

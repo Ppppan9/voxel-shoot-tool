@@ -1,18 +1,16 @@
-# Side-by-side vs reference — remaining (v1.3.0)
+# Remaining vs reference (v1.3.1)
 
-Personally Read `game_sphere_cage` / `game_house` / `game_watermelon` + matching `side_*.png` vs REF frames (firing stills).
+Polished after Reading new firing `side_sphere_cage` / `side_watermelon` / `game_*`.
 
-## Checklist vs parent reject of v1.2.0
-1. **3D glossy slots + inventory** — restored (screen-anchored 3D tanks/blocks with depth+shadows); layout bands kept via UI2D rect unproject. Not flat ui2d squares.
-2. **Sphere** — Rubik-like color cells + green/orange/yellow/red + white lat/lon cage; debris when firing.
-3. **House** — three-quarter angle, red roof, chimney, blue/yellow walls, tan base, debris.
-4. **Watermelon** — green rind + cream + red flesh + black seeds + debris; slight tilt (still flatter than ad’s deep dome).
-5. **Stills with fire** — `fireRate>0`, trails + debris in shots.
+## This bump
+1. Sphere starts rotated (~0.95 rad) + tiltX 0.38 — not front-on.
+2. Trails = thin bead chain of small balls (not thick cylinder columns).
+3. Watermelon = thick disk with red cut face toward camera, green rind, cream ring, black seeds.
+4. Tanks = single rounded glossy hull + weak side strips + short dual white tips (less blocky tracks).
 
-## Tiny leftovers
-1. Projectile trails still a bit thick vs ad’s thin streaks.
-2. Watermelon cut-face tilt/depth not as dramatic as detail_27s.
-3. Sphere screen fraction still slightly larger than ad breathing room.
-4. Hand = toolkit mahjong finger (required), not ad white glove.
-5. Inventory ammo counts for solvability ≠ every ad frame’s digits.
-6. Cannon silhouette is toy-tank (rounded hull + dual barrels), not every ad variant.
+## Still short of ad
+1. Sphere white cage still softer/less Rubik-sharp than f_0001 in some frames.
+2. Trails can look sparse vs ad’s continuous thin streaks when few balls in flight.
+3. Watermelon tilt is milder than detail_27s’s dramatic lean.
+4. Tank tops still show dual white tips (ad variants differ).
+5. Hand = toolkit mahjong finger, not ad white glove.

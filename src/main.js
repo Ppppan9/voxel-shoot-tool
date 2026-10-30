@@ -57,7 +57,7 @@ function startLevel(Lnew) {
     slots: new Array(SLOTS).fill(null),
     inv: L.inventory.map((b, i) => ({ ...b, left: b.ammo, gi: i, state: 'inv' })),
     balls: [], pops: [], debris: [], flyers: [],
-    rotY: (S.level === 'house' ? 0.65 : S.level === 'watermelon' ? -0.25 : 0), t0: now(),
+    rotY: (S.level === 'sphere_cage' ? 0.95 : S.level === 'diamond_cage' ? 0.55 : S.level === 'house' ? 0.65 : S.level === 'watermelon' ? 0.12 : 0), t0: now(),
   };
   // 预填槽位（允许稀疏：广告开局常为左右两端有炮）
   const pre = L.preSlots || [];
@@ -413,18 +413,19 @@ function scene(t) {
   for (const b of G.balls) {
     if (!b.pos) continue;
     const p = Wd.proj(...b.pos);
-    items.push({ id: b.id, asset: 'ball', x: p[0], y: p[1], sx: 1, sy: 1, rot: 0, op: 1, z: 50, w: b.pos.slice(), ws: 1 });
-    const u = Math.min(0.95, Math.max(0.04, (t - b.t0) / Math.max(1, b.dur)));
-    const prev = b.path(Math.max(0, u - 0.12));
-    const dx = b.pos[0] - prev[0], dy = b.pos[1] - prev[1], dz = b.pos[2] - prev[2];
-    const len = Math.hypot(dx, dy, dz) || 0.01;
-    const mid = [(b.pos[0] + prev[0]) / 2, (b.pos[1] + prev[1]) / 2, (b.pos[2] + prev[2]) / 2];
-    const pitch = Math.acos(Math.max(-1, Math.min(1, dy / len))) - Math.PI / 2;
-    const yaw = Math.atan2(dx, -dz);
-    items.push({
-      id: b.id + '_tr', asset: 'trail', x: p[0], y: p[1], sx: 1, sy: 1, rot: 0, op: 0.7, z: 49,
-      w: mid, ws: 1, trailLen: Math.min(2.4, len * 2.2 + 0.5), rx: pitch, ry: yaw, rz: 0,
-    });
+    items.push({ id: b.id, asset: 'ball', x: p[0], y: p[1], sx: 1, sy: 1, rot: 0, op: 1, z: 50, w: b.pos.slice(), ws: 0.85 });
+    // 细白拖尾：沿轨迹撒 4 颗递减小球（广告细条感，非粗光柱）
+    const u = Math.min(0.98, Math.max(0.02, (t - b.t0) / Math.max(1, b.dur)));
+    for (let k = 1; k <= 4; k++) {
+      const uu = Math.max(0, u - k * 0.045);
+      const pp = b.path(uu);
+      const fade = 1 - k * 0.18;
+      items.push({
+        id: b.id + '_tr' + k, asset: 'ball', x: 0, y: 0, sx: 1, sy: 1, rot: 0,
+        op: 0.55 * fade, z: 49 - k,
+        w: pp, ws: 0.55 * fade,
+      });
+    }
   }
 
   for (const d of G.debris) {
@@ -459,7 +460,7 @@ function draw(t) {
 
   // 完整 3D：目标 + 炮台 + 库存 + 球/拖尾/碎屑（屏幕锚点保证布局带）
   if (r3d && !window.__no3d) {
-    const img = r3d.render({ items, vox: voxGroups(t), rotY: G.rotY }, S, Math.round(DW * v.k), Math.round(DH * v.k));
+    const img = r3d.render({ items, vox: voxGroups(t), rotY: G.rotY, rotX: S.targetTiltX || 0 }, S, Math.round(DW * v.k), Math.round(DH * v.k));
     ctx.drawImage(img, 0, v.oy, DW * v.k, DH * v.k);
   }
 

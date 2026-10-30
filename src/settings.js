@@ -4,7 +4,7 @@ import { PRESET_ORDER } from './level.js';
 export const SETTINGS_VERSION = 5;
 export const STORE_KEY = 'voxelShootTool.settings';
 export const APP_ID = 'voxel-shoot-tool';
-export const APP_VERSION = '1.3.0';
+export const APP_VERSION = '1.3.1';
 
 const levelOpts = [
   ...PRESET_ORDER.map(id => [id, ({
@@ -25,6 +25,7 @@ export const GROUPS = [
     ['startSlots', '开局预填槽位数', 'range', 2, 0, 5, 1],
     ['voxScale', '体素整体缩放', 'range', 0.52, 0.3, 1.8, 0.01],
     ['targetRotSpeed', '目标旋转速度(°/秒)', 'range', 18, 0, 90, 1],
+    ['targetTiltX', '目标俯仰(弧度)', 'range', 0.38, -0.6, 0.8, 0.01],
   ]],
   ['外观', [
     ['bgColor', '背景色（参考深蓝）', 'color', '#243A63'],
@@ -49,10 +50,10 @@ export const GROUPS = [
     ['voxGap', '方块间缝(负=重叠)', 'range', -0.04, -0.08, 0.3, 0.005],
     ['voxRound', '方块圆角', 'range', 0.16, 0, 0.45, 0.01],
     ['outline3d', '卡通描边', 'range', 0.7, 0, 2, 0.05],
-    ['ballR', '小球半径', 'range', 0.22, 0.1, 0.8, 0.01],
+    ['ballR', '小球半径', 'range', 0.18, 0.1, 0.8, 0.01],
     ['ballGlow', '小球自发光', 'range', 0.65, 0, 2, 0.05],
     ['ballHalo', '小球光晕半径', 'range', 1.35, 1, 2.5, 0.05],
-    ['ballHaloOp', '小球光晕不透明度', 'range', 0.12, 0, 0.8, 0.01],
+    ['ballHaloOp', '小球光晕不透明度', 'range', 0.06, 0, 0.8, 0.01],
     ['invScale', '库存块缩放', 'range', 1.2, 0.6, 2.2, 0.01],
   ]],
   ['3D 渲染', [
