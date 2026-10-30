@@ -1,10 +1,10 @@
 import { DEFAULT_HAND } from './default_hand.js';
 import { h5DeviceSelectOptions } from './h5/index.js';
 import { PRESET_ORDER } from './level.js';
-export const SETTINGS_VERSION = 13;
+export const SETTINGS_VERSION = 14;
 export const STORE_KEY = 'voxelShootTool.settings';
 export const APP_ID = 'voxel-shoot-tool';
-export const APP_VERSION = '1.3.8';
+export const APP_VERSION = '1.3.9';
 
 const levelOpts = [
   ...PRESET_ORDER.map(id => [id, ({
@@ -32,6 +32,7 @@ export const GROUPS = [
     ['bgColor', '背景色（参考深蓝）', 'color', '#243A63'],
     ['titleText', '顶部文案', 'text', '这游戏太上头了'],
     ['titleSize', '顶部字号', 'range', 46, 16, 72, 1],
+    ['titleBanner', '顶部白底横幅', 'bool', false],
     ['titleY', '顶部文字Y', 'range', 52, 10, 160, 1],
     ['titleColor', '顶部文字颜色', 'color', '#0a0a0a'],
     ['col_green', '绿色', 'color', '#7CFC00'],
@@ -51,10 +52,10 @@ export const GROUPS = [
     ['voxGap', '方块间缝(负=重叠)', 'range', -0.04, -0.08, 0.3, 0.005],
     ['voxRound', '方块圆角', 'range', 0.16, 0, 0.45, 0.01],
     ['outline3d', '卡通描边', 'range', 0.7, 0, 2, 0.05],
-    ['ballR', '小球半径', 'range', 0.15, 0.08, 0.8, 0.01],
-    ['ballGlow', '小球自发光', 'range', 1.25, 0, 2.5, 0.05],
-    ['ballHalo', '小球光晕半径', 'range', 1.65, 1, 2.8, 0.05],
-    ['ballHaloOp', '小球光晕不透明度', 'range', 0.22, 0, 0.8, 0.01],
+    ['ballR', '小球半径', 'range', 0.09, 0.08, 0.8, 0.01],
+    ['ballGlow', '小球自发光', 'range', 0.8, 0, 2.5, 0.05],
+    ['ballHalo', '小球光晕半径', 'range', 1.3, 1, 2.8, 0.05],
+    ['ballHaloOp', '小球光晕不透明度', 'range', 0.12, 0, 0.8, 0.01],
     ['invScale', '库存块缩放', 'range', 1.05, 0.6, 2.2, 0.01],
   ]],
   ['3D 渲染', [
@@ -93,15 +94,15 @@ export const GROUPS = [
     ['leaveDur', '弹药打光离场(ms)', 'range', 280, 50, 1500, 10],
     ['popDur', '方块消除(ms)', 'range', 200, 0, 800, 10],
     ['jellyPop', '果冻挤压强度', 'range', 1.15, 0, 2, 0.05],
-    ['debrisCount', '碎屑数', 'range', 26, 0, 40, 1],
+    ['debrisCount', '碎屑数', 'range', 30, 0, 40, 1],
     ['debrisLife', '碎屑寿命(ms)', 'range', 900, 100, 2500, 50],
-    ['debrisSize', '碎屑尺寸', 'range', 0.28, 0.05, 0.8, 0.01],
+    ['debrisSize', '碎屑尺寸', 'range', 0.2, 0.05, 0.8, 0.01],
     ['debrisSpread', '碎屑飞散', 'range', 2.5, 0.2, 4.5, 0.05],
-    ['sparkCount', '命中白雾数', 'range', 18, 0, 32, 1],
+    ['sparkCount', '命中白雾数', 'range', 6, 0, 32, 1],
     ['sparkLife', '白雾寿命(ms)', 'range', 580, 80, 1400, 10],
-    ['sparkSpread', '白雾飞散', 'range', 7.5, 0.5, 16, 0.1],
-    ['flashLife', '命中闪光(ms)', 'range', 200, 60, 600, 10],
-    ['flashSize', '命中闪光尺寸', 'range', 2.8, 0.5, 6, 0.1],
+    ['sparkSpread', '白雾飞散', 'range', 4, 0.5, 16, 0.1],
+    ['flashLife', '命中闪光(ms)', 'range', 120, 60, 600, 10],
+    ['flashSize', '命中闪光尺寸', 'range', 1.1, 0.5, 6, 0.1],
     ['bobAmp', '炮台呼吸幅度', 'range', 0.06, 0, 0.4, 0.01],
     ['bobPeriod', '呼吸周期(ms)', 'range', 600, 200, 2000, 10],
     ['recoil', '射击后坐', 'range', 0.24, 0, 0.6, 0.01],
@@ -252,6 +253,10 @@ export function migrate(obj) {
     },
     12: {
       targetY: 10.6, voxScale: 0.54, cam3dTY: 8.0, cam3dY: 11.6, uiScale: 0.38,
+    },
+    14: {
+      ballR: 0.15, ballGlow: 1.25, ballHalo: 1.65, ballHaloOp: 0.22, debrisCount: 26, debrisSize: 0.28,
+      sparkCount: 18, sparkSpread: 7.5, flashLife: 200, flashSize: 2.8,
     },
     13: {
       uiScale: 0.38, /* bump default 0.40 for taller multi-hump tanks */

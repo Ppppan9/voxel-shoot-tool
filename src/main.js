@@ -240,7 +240,7 @@ function step(t) {
     if (!can && white >= 0) { for (const m of st.exp[white]) if (isShootable(L, st, m)) { can = true; break; } }
     if (!can) continue;
     const sw = slotAnchor(sh.si, t, sh);
-    const muz = [sw.x, sw.y + 0.85, sw.z - 0.55]; // tip 前方偏上，出膛不挡顶面数字
+    const muz = [sw.x, sw.y + 0.45, sw.z - 0.2]; // 块顶面中心出膛 // tip 前方偏上，出膛不挡顶面数字
     const tg = pickTargetLOS(sh, muz, G.rotY);
     if (!tg) continue;
     st.claimed[tg.m] = 1;
@@ -408,14 +408,14 @@ function scene(t) {
   G.slots.forEach((sh, si) => {
     if (!sh) return;
     const sw = slotAnchor(si, t, sh);
-    let op = 1, ws = uiScale;
+    // 发射区块 = 待选块同模型同尺寸，不变形（仅整体淡出/下沉离场）
+    let op = 1, ws = invScale;
     if (sh.state === 'leaving') {
       const u = clamp01((t - sh.leaveT0) / S.leaveDur);
-      op = 1 - easeOut(u); ws = uiScale * (1 - 0.25 * u);
+      op = 1 - easeOut(u); ws = invScale * (1 - 0.25 * u);
     }
-    // 后坐：略下压 + 微缩
+    // 后坐：仅位移下压，不缩放
     const rec = Math.min(1, (sh.recoil || 0) / Math.max(0.01, S.recoil || 0.18));
-    ws *= 1 - 0.08 * rec;
     const p = Wd.proj(sw.x, sw.y, sw.z);
     items.push({
       id: sh.id, asset: 'shooter_' + sh.name, x: p[0], y: p[1], sx: 1, sy: 1, rot: 0, op,
@@ -489,16 +489,16 @@ function scene(t) {
     };
     // 广告彗星拖尾：紧贴球身后短尾（约 8% 弹道 / 世界长 ~0.45–0.9），绝非炮口到目标竖线
     if (u > 0.06) {
-      const span = 0.08; // ~8% of flight — short comet
+      const span = 0.11; // 短彗星
       const u0 = Math.max(0.02, u - span);
       const pa = b.path(u0), pb = b.pos;
       const ll = Math.hypot(pb[0]-pa[0], pb[1]-pa[1], pb[2]-pa[2]) || 0.01;
-      const worldLen = Math.max(0.45, Math.min(0.9, ll * 0.85));
-      addCone(b.id + '_tr', u0, u, 0.95, 0.7, 49);
+      const worldLen = Math.max(0.6, Math.min(1.2, ll * 0.95));
+      addCone(b.id + '_tr', u0, u, 1.0, 1.0, 49);
       const last = items[items.length - 1];
       if (last && last.id === b.id + '_tr') last.trailLen = worldLen;
       // soft outer glow only, slightly longer
-      addCone(b.id + '_trg', u0, u, 0.35, 1.05, 48);
+      addCone(b.id + '_trg', u0, u, 0.5, 1.8, 48);
       const last2 = items[items.length - 1];
       if (last2 && last2.id === b.id + '_trg') last2.trailLen = worldLen * 1.1;
     }

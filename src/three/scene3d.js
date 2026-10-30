@@ -295,7 +295,7 @@ export function create3D(opt = {}) {
     if (o && o.asset !== it.asset) { scene.remove(o.obj); pool.delete(it.id); o = null; }
     if (!o) {
       let obj; const k = it.asset;
-      if (k.startsWith('shooter_') || k.startsWith('cannon_')) obj = makeShooter(S0, k.split('_')[1], Wd);
+      if (k.startsWith('shooter_') || k.startsWith('cannon_')) obj = makeInvBlock(S0, k.split('_')[1]); // 发射区沿用待选块模型
       else if (k.startsWith('inv_')) obj = makeInvBlock(S0, k.slice(4));
       else if (k === 'ball' || k === 'spark' || k === 'flash') obj = makeBall(S0);
       else if (k === 'trail') obj = makeTrail(S0);
@@ -319,7 +319,7 @@ export function create3D(opt = {}) {
         // 更大俯仰 → 看见顶面数字；发射区略仰
         const isTank = it.asset.startsWith('shooter_') || it.asset.startsWith('cannon_');
         // 炮台更正视（避免俯视压扁）；库存略仰以读前后遮挡
-        e.x = isTank ? 0.08 : 0.20;
+        e.x = 0.20; // 发射区与待选区同一模型同一角度
         ob.quaternion.setFromEuler(e);
       } else {
         ob.rotation.set(it.rx || 0, it.ry || 0, it.rz || 0);

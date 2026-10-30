@@ -1,0 +1,20 @@
+import { chromium } from 'playwright-core';
+import http from 'http'; import fs from 'fs'; import path from 'path';
+const root=process.cwd();
+const server=http.createServer((q,r)=>{let u=q.url.split('?')[0];fs.readFile(path.join(root,u==='/'?'/index.html':decodeURIComponent(u)),(e,d)=>{if(e){r.writeHead(404);return r.end();}r.writeHead(200,{'Content-Type':u==='/'?'text/html':'application/octet-stream'});r.end(d);});});
+await new Promise(r=>server.listen(0,'127.0.0.1',r));
+const b=await chromium.launch({executablePath:'/usr/bin/google-chrome',headless:true,args:['--use-gl=swiftshader','--enable-unsafe-swiftshader']});
+const p=await b.newPage({viewport:{width:1100,height:1000}});
+await p.goto(`http://127.0.0.1:${server.address().port}/`);await p.waitForFunction(()=>window.__game);
+await p.evaluate(()=>localStorage.clear());await p.reload();await p.waitForFunction(()=>window.__game);
+console.log(await p.evaluate(()=>JSON.stringify({f:__game.S.flashSize,s:__game.S.sparkCount,v:__game.S.titleBanner})));
+const snap=async n=>{fs.writeFileSync('screenshots/'+n,Buffer.from((await p.evaluate(()=>document.getElementById('stage').toDataURL())).split(',')[1],'base64'));console.log('w',n);};
+await p.evaluate(()=>{for(const[k,v]of[['level','sphere_cage'],['startSlots',3],['handShow',true],['manualHand',true],['handRest',false],['pressEnabled',true]])__game.set(k,v);__game.newGame();});
+await p.evaluate(()=>{window.__T=performance.now()+500;__game.renderAt(__T);const v=__game.G.inv.filter(b=>b.state==='inv');const c=__game.invScreen(v[0].gi);__game.hand.visible=true;__game.hand.x=c[0];__game.hand.y=c[1];__game.renderAt(__T);});
+await snap('pick_0.png');
+console.log(await p.evaluate(()=>{const h=__game.hand;h.pressT0=__T;__game.G.slots[4]=null;__game.G.slots[3]=null;window.__vclock=__T;const r=__game.tapAt(h.x,h.y);return JSON.stringify([r, __game.G.flyers.length]);}));
+for(const [i,dt] of [[1,70],[2,170],[3,280],[4,700]]){await p.evaluate(dt=>{__game.renderAt(__T+dt)},dt);await snap(`pick_${i}.png`);}
+await p.evaluate(()=>{window.__vclock=null;__game.set('handShow',false);__game.set('startSlots',5);__game.set('fireRate',16);__game.newGame();});
+await p.evaluate(async()=>{let t=performance.now();for(let i=0;i<60;i++){t+=22;__game.renderAt(t);await new Promise(r=>setTimeout(r,0));}});
+await snap('game_fx.png');
+await b.close();server.close();

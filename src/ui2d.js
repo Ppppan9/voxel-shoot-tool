@@ -15,7 +15,7 @@ export const UI = {
   // 待选区：对齐 f_0001 inv≈0.75；与发射区短空缝
   invTop: 960,
   invCell: 96,
-  invColGap: 6,
+  invColGap: 2,
   invRowGap: -18,
   invGap: 10, // legacy alias = col gap
 };
@@ -193,8 +193,7 @@ export function drawTitle(ctx, S) {
   ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
   const y = S.titleY || UI.titleY;
   // 参考：顶部白底横幅 + 黑字
-  ctx.fillStyle = '#ffffff';
-  roundRect(ctx, 36, y - size * 0.72, 720 - 72, size * 1.45, 8); ctx.fill();
+  if (S.titleBanner) { ctx.fillStyle = '#ffffff'; roundRect(ctx, 36, y - size * 0.72, 720 - 72, size * 1.45, 8); ctx.fill(); }
   ctx.fillStyle = S.titleColor || '#0a0a0a';
   ctx.fillText(text, 360, y);
   ctx.restore();
