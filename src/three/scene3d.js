@@ -47,83 +47,87 @@ function withOutline(mesh, S) {
 const shade = (hex, f) => { const c = new THREE.Color(hex); c.multiplyScalar(f); return '#' + c.getHexString(); };
 
 const numTex = new Map();
-function strokeRoundDigit(g, d, x, y, s) {
-  // 手绘粗圆角数字路径（广告圆墩白字，不依赖系统字体）
-  g.save();
-  g.translate(x, y);
-  g.lineCap = 'round'; g.lineJoin = 'round';
-  const w = s * 0.42, h = s * 0.62;
-  const draw = (fn) => { g.beginPath(); fn(); g.stroke(); };
-  if (d === '0') draw(() => { g.ellipse(0, 0, w, h, 0, 0, Math.PI * 2); });
-  else if (d === '1') draw(() => { g.moveTo(-w * 0.35, -h * 0.7); g.lineTo(0, -h); g.lineTo(0, h); g.moveTo(-w * 0.45, h); g.lineTo(w * 0.45, h); });
-  else if (d === '2') draw(() => { g.moveTo(-w, -h * 0.55); g.quadraticCurveTo(-w, -h, 0, -h); g.quadraticCurveTo(w, -h, w, -h * 0.45); g.quadraticCurveTo(w, 0, 0, h * 0.15); g.lineTo(-w, h); g.lineTo(w, h); });
-  else if (d === '3') draw(() => { g.moveTo(-w * 0.85, -h); g.lineTo(w * 0.35, -h); g.quadraticCurveTo(w, -h, w, -h * 0.45); g.quadraticCurveTo(w, 0, 0, 0); g.quadraticCurveTo(w, 0, w, h * 0.45); g.quadraticCurveTo(w, h, 0, h); g.lineTo(-w * 0.85, h); });
-  else if (d === '4') draw(() => { g.moveTo(w * 0.25, h); g.lineTo(w * 0.25, -h); g.moveTo(w * 0.25, -h); g.lineTo(-w, h * 0.25); g.lineTo(w, h * 0.25); });
-  else if (d === '5') draw(() => { g.moveTo(w * 0.85, -h); g.lineTo(-w, -h); g.lineTo(-w, -0.05); g.lineTo(w * 0.2, -0.05); g.quadraticCurveTo(w, -0.05, w, h * 0.4); g.quadraticCurveTo(w, h, 0, h); g.lineTo(-w * 0.85, h); });
-  else if (d === '6') draw(() => { g.moveTo(w * 0.7, -h * 0.85); g.quadraticCurveTo(-w, -h, -w, 0); g.quadraticCurveTo(-w, h, 0, h); g.quadraticCurveTo(w, h, w, h * 0.2); g.quadraticCurveTo(w, -0.15, 0, -0.15); g.quadraticCurveTo(-w, -0.15, -w, h * 0.2); });
-  else if (d === '7') draw(() => { g.moveTo(-w, -h); g.lineTo(w, -h); g.lineTo(-w * 0.15, h); });
-  else if (d === '8') draw(() => { g.ellipse(0, -h * 0.45, w * 0.85, h * 0.42, 0, 0, Math.PI * 2); g.moveTo(0, 0); g.ellipse(0, h * 0.45, w * 0.95, h * 0.48, 0, 0, Math.PI * 2); });
-  else if (d === '9') draw(() => { g.moveTo(-w * 0.7, h * 0.85); g.quadraticCurveTo(w, h, w, 0); g.quadraticCurveTo(w, -h, 0, -h); g.quadraticCurveTo(-w, -h, -w, -h * 0.2); g.quadraticCurveTo(-w, 0.15, 0, 0.15); g.quadraticCurveTo(w, 0.15, w, -h * 0.2); });
-  else draw(() => { g.moveTo(-w * 0.5, 0); g.lineTo(w * 0.5, 0); }); // fallback dash
-  g.restore();
-}
 export function numberCanvas(n) {
-  // 广告：粗圆角白数字 + 暗描边阴影（手绘路径，圆墩感）
-  const c = document.createElement('canvas'); c.width = 256; c.height = 256;
+  // 广告：正面粗圆角白实心字 + 轻暗描边（非手绘空心描边）
+  const c = document.createElement('canvas'); c.width = 256; c.height = 160;
   const g = c.getContext('2d');
-  g.clearRect(0, 0, 256, 256);
+  g.clearRect(0, 0, 256, 160);
   const s = String(n);
-  const digS = s.length >= 3 ? 72 : s.length === 2 ? 96 : 118;
-  const gap = digS * 0.78;
-  const totalW = (s.length - 1) * gap;
-  const paint = (lw, stroke, ox, oy) => {
-    g.lineWidth = lw; g.strokeStyle = stroke;
-    for (let i = 0; i < s.length; i++) {
-      strokeRoundDigit(g, s[i], 128 - totalW / 2 + i * gap + ox, 128 + oy, digS);
-    }
-  };
-  paint(digS * 0.34, 'rgba(0,0,0,0.35)', 3, 5);
-  paint(digS * 0.3, 'rgba(10,12,20,0.92)', 0, 0);
-  paint(digS * 0.2, '#ffffff', 0, 0);
+  const fs = s.length >= 3 ? 100 : s.length === 2 ? 128 : 148;
+  g.font = `900 ${fs}px "Arial Rounded MT Bold","Nunito","Helvetica Neue",Arial,sans-serif`;
+  g.textAlign = 'center'; g.textBaseline = 'middle';
+  g.lineJoin = 'round'; g.lineCap = 'round';
+  const cx = 128, cy = 84;
+  g.fillStyle = 'rgba(0,0,0,0.28)';
+  g.fillText(s, cx + 2, cy + 3);
+  g.lineWidth = Math.max(8, fs * 0.09);
+  g.strokeStyle = 'rgba(10,12,18,0.75)';
+  g.strokeText(s, cx, cy);
+  g.fillStyle = '#ffffff';
+  g.fillText(s, cx, cy);
   return c;
 }
 export function numberTexture(n) {
   if (!numTex.has(n)) {
-    const t = new THREE.CanvasTexture(numberCanvas(n));
-    t.colorSpace = THREE.SRGBColorSpace; t.name = 'num_' + n; t.anisotropy = 8;
-    numTex.set(n, t);
+    const tex = new THREE.CanvasTexture(numberCanvas(n));
+    tex.colorSpace = THREE.SRGBColorSpace; tex.name = 'num_' + n; tex.anisotropy = 8;
+    numTex.set(n, tex);
   }
   return numTex.get(n);
 }
 
-// 广告风玩具炮台：敦实圆角块 + 半球炮塔 + 短上仰炮管 + 正面大白数字（借 block-shooter 分体结构）
+// 广告 chibi 玩具炮：敦实圆墩身体 + 小圆眼睛 + 短上仰白炮口 + 正面大白数字
 export function makeShooter(S, color, Wd) {
-  // 广告发射区：圆墩玩具块 + 顶面数字偏后 + 单顶白尖靠前（开火白球不挡字）
-  const hex = colorHex(S, color), lite = shade(hex, 1.18);
+  const hex = colorHex(S, color), lite = shade(hex, 1.14), dark = shade(hex, 0.82);
   const { w, d, h } = Wd.SH;
   const G = new THREE.Group(); G.name = 'shooter_' + color;
   const body = new THREE.Group(); body.name = 'body';
   const upper = new THREE.Group(); upper.name = 'upper';
-  const tankR = Math.min(0.4, (S.tankRough ?? 0.22));
-  const rb = (W2, H2, D2, r) => new RoundedBoxGeometry(W2, H2, D2, 6, r);
+  const tankR = Math.min(0.42, (S.tankRough ?? 0.22));
+  const rb = (W2, H2, D2, r) => new RoundedBoxGeometry(W2, H2, D2, 5, r);
 
-  // 圆墩敦实（近正方 + 大圆角）
-  const hull = new THREE.Mesh(rb(w * 1.04, h * 0.96, d * 1.04, 0.52), mat(S, hex, { rough: tankR }));
-  hull.name = 'hull'; hull.position.set(0, h * 0.46, 0); body.add(withOutline(hull, S));
-  const cap = new THREE.Mesh(rb(w * 0.7, h * 0.16, d * 0.7, 0.24), mat(S, lite, { rough: Math.max(0.08, tankR - 0.1) }));
-  cap.name = 'cap'; cap.position.set(0, h * 0.9, 0); body.add(cap);
-  // 白尖靠前上沿，离开数字区
-  const tip = new THREE.Mesh(new THREE.SphereGeometry(0.14, 14, 12), mat(S, '#ffffff', { rough: 0.12 }));
-  tip.position.set(0, h * 1.0, -d * 0.42); upper.add(tip);
+  // 敦实矮胖身体（chibi toy，非扁按钮）
+  const hull = new THREE.Mesh(rb(w * 0.98, h * 0.78, d * 0.92, 0.38), mat(S, hex, { rough: tankR }));
+  hull.name = 'hull'; hull.position.set(0, h * 0.4, 0); body.add(withOutline(hull, S));
+  // 头顶圆帽
+  const head = new THREE.Mesh(rb(w * 0.72, h * 0.28, d * 0.7, 0.28), mat(S, lite, { rough: Math.max(0.1, tankR - 0.08) }));
+  head.name = 'head'; head.position.set(0, h * 0.82, 0.02); body.add(head);
 
-  // 数字贴顶面偏后（+Z），depthTest 关避免被刚出膛白球盖住
-  const lab = new THREE.Mesh(
-    new THREE.PlaneGeometry(w * 0.95, w * 0.78),
-    new THREE.MeshBasicMaterial({ map: numberTexture(0), transparent: true, depthWrite: false, depthTest: false })
+  // 两只小黑圆眼睛（正面）
+  const eyeMat = mat(S, '#1a1a22', { rough: 0.35 });
+  const eyeR = Math.min(w, h) * 0.07;
+  for (const sx of [-1, 1]) {
+    const eye = new THREE.Mesh(new THREE.SphereGeometry(eyeR, 12, 10), eyeMat);
+    eye.name = sx < 0 ? 'eye_L' : 'eye_R';
+    eye.position.set(sx * w * 0.18, h * 0.55, d * 0.48);
+    body.add(eye);
+    // 小白高光点
+    const hi = new THREE.Mesh(new THREE.SphereGeometry(eyeR * 0.35, 8, 6), mat(S, '#ffffff', { rough: 0.2 }));
+    hi.position.set(sx * w * 0.18 + eyeR * 0.25, h * 0.55 + eyeR * 0.25, d * 0.48 + eyeR * 0.7);
+    body.add(hi);
+  }
+
+  // 短白炮口（上仰，从头顶伸出）
+  const muzzle = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.1, 0.13, h * 0.28, 12),
+    mat(S, '#f5f7fa', { rough: 0.18 })
   );
-  lab.name = 'label'; lab.renderOrder = 20;
-  lab.rotation.x = -Math.PI / 2;
-  lab.position.set(0, h * 0.98, d * 0.12);
+  muzzle.name = 'muzzle';
+  muzzle.rotation.x = -0.55;
+  muzzle.position.set(0, h * 1.02, -d * 0.08);
+  upper.add(withOutline(muzzle, S));
+  const tip = new THREE.Mesh(new THREE.SphereGeometry(0.11, 12, 10), mat(S, '#ffffff', { rough: 0.12 }));
+  tip.name = 'tip';
+  tip.position.set(0, h * 1.12, -d * 0.22);
+  upper.add(tip);
+
+  // 数字贴在正面（眼睛下方），随 faceCam 朝相机
+  const lab = new THREE.Mesh(
+    new THREE.PlaneGeometry(w * 0.88, h * 0.42),
+    new THREE.MeshBasicMaterial({ map: numberTexture(0), transparent: true, depthWrite: false, depthTest: true })
+  );
+  lab.name = 'label'; lab.renderOrder = 8;
+  lab.position.set(0, h * 0.42, d * 0.5 + 0.02);
   upper.add(lab);
 
   G.add(body, upper);
@@ -131,7 +135,7 @@ export function makeShooter(S, color, Wd) {
   return G;
 }
 
-// 库存块：敦实圆角立方 + 顶面大白数字（广告待选区）
+// 库存块：敦实圆角立方 + 正面大白数字（广告待选区）
 export function makeInvBlock(S, color) {
   const hex = colorHex(S, color), lite = shade(hex, 1.1);
   const G = new THREE.Group(); G.name = 'inv_' + color;
@@ -140,14 +144,13 @@ export function makeInvBlock(S, color) {
   m.name = 'hull'; G.add(withOutline(m, S));
   const top = new THREE.Mesh(new RoundedBoxGeometry(0.78, 0.1, 0.78, 2, 0.12), mat(S, lite, { rough: rough - 0.05 }));
   top.position.set(0, 0.44, 0); G.add(top);
-  // 数字贴顶面中央
+  // 数字贴正面中央（朝相机）
   const lab = new THREE.Mesh(
-    new THREE.PlaneGeometry(1.12, 1.12),
-    new THREE.MeshBasicMaterial({ map: numberTexture(0), transparent: true, depthWrite: false, depthTest: false })
+    new THREE.PlaneGeometry(0.92, 0.55),
+    new THREE.MeshBasicMaterial({ map: numberTexture(0), transparent: true, depthWrite: false, depthTest: true })
   );
-  lab.name = 'label'; lab.renderOrder = 20;
-  lab.rotation.x = -Math.PI / 2;
-  lab.position.set(0, 0.54, 0);
+  lab.name = 'label'; lab.renderOrder = 8;
+  lab.position.set(0, 0.02, 0.52);
   G.add(lab);
   G.userData.label = lab; G.userData.color = color;
   return G;
@@ -296,7 +299,8 @@ export function create3D(opt = {}) {
         e.z = 0;
         // 更大俯仰 → 看见顶面数字；发射区略仰
         const isTank = it.asset.startsWith('shooter_') || it.asset.startsWith('cannon_');
-        e.x = isTank ? 0.46 : 0.52;
+        // 略仰即可：正面眼睛+数字可读，勿压成顶视
+        e.x = isTank ? 0.22 : 0.28;
         ob.quaternion.setFromEuler(e);
       } else {
         ob.rotation.set(it.rx || 0, it.ry || 0, it.rz || 0);
@@ -340,8 +344,8 @@ export function create3D(opt = {}) {
         if (lab.userData.n !== n) { lab.material.map = numberTexture(n); lab.material.needsUpdate = true; lab.userData.n = n; }
         lab.material.opacity = it.numOp ?? 1;
         lab.visible = n != null && (it.numOp ?? 1) > 0.01;
-        // 顶面数字：保持贴顶（-90°X），不 billboard
-        lab.rotation.set(-Math.PI / 2, 0, 0);
+        // 正面数字：贴在朝前平面，随整块 faceCam，不再压到顶面
+        lab.rotation.set(0, 0, 0);
       }
       ob.visible = (it.op ?? 1) > 0.01;
     }

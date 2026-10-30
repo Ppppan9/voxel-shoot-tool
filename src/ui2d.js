@@ -1,23 +1,23 @@
 // 平面 UI：槽位 + 炮台 + 库存（对齐参考广告的「扁平 UI」透视）
 // 画布 720×1280 分区（实测 detail_02s）：
-//   title 0–70 | target 70–700 | slots ~700–850 | inv ~860–1260
+//   title 0–80 | target ~120–740 | slots ~820–910 | inv ~985–1260
 import { colorHex, PALETTE } from './three/scene3d.js';
 import { SLOTS } from './level.js';
 
 export const UI = {
   titleY: 52,
   titleSize: 46,
-  // 发射区：广告更小的玩具块，坐在一条凹槽平台上
-  slotY: 734,
-  slotH: 102,
-  slotW: 98,
-  slotGap: 10,
-  // 待选区：列缝清晰 + 列内近零/微重叠（f_0001）
-  invTop: 848,
-  invCell: 108,
-  invColGap: 12,
-  invRowGap: -36,
-  invGap: 12, // legacy alias = col gap
+  // 发射区：对齐 f_0001 绿峰 ~0.67；目标底→炮台呼吸空
+  slotY: 800,
+  slotH: 96,
+  slotW: 96,
+  slotGap: 8,
+  // 待选区：对齐 f_0001 inv≈0.75；与发射区短空缝
+  invTop: 960,
+  invCell: 90,
+  invColGap: 10,
+  invRowGap: -26,
+  invGap: 10, // legacy alias = col gap
 };
 
 export function slotRects() {

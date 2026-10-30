@@ -473,14 +473,23 @@ function scene(t) {
       const yw = Math.atan2(ddx, -ddz);
       items.push({
         id, asset: 'trail', x: 0, y: 0, sx: 1, sy: 1, rot: 0, op, z,
-        w: mm, ws: 1, trailLen: Math.max(0.7, Math.min(5.0, ll * 1.02)), trailThick: thick, rx: pit, ry: yw, rz: 0,
+        w: mm, ws: 1, trailLen: Math.max(0.55, Math.min(1.35, ll * 1.0)), trailThick: thick, rx: pit, ry: yw, rz: 0,
       });
     };
-    // 软运动模糊针：球身后 ~55% 弹道，渐变贴图无硬边（勿过粗）
-    if (u > 0.1) {
-      const u0 = Math.max(0.02, u - 0.55);
-      addCone(b.id + '_tr', u0, u, 0.95, 0.38, 49);
-      addCone(b.id + '_trg', u0, u, 0.5, 0.65, 48);
+    // 广告彗星拖尾：紧贴球身后短尾（约 8% 弹道 / 世界长 ~0.45–0.9），绝非炮口到目标竖线
+    if (u > 0.06) {
+      const span = 0.08; // ~8% of flight — short comet
+      const u0 = Math.max(0.02, u - span);
+      const pa = b.path(u0), pb = b.pos;
+      const ll = Math.hypot(pb[0]-pa[0], pb[1]-pa[1], pb[2]-pa[2]) || 0.01;
+      const worldLen = Math.max(0.45, Math.min(0.9, ll * 0.85));
+      addCone(b.id + '_tr', u0, u, 0.95, 0.7, 49);
+      const last = items[items.length - 1];
+      if (last && last.id === b.id + '_tr') last.trailLen = worldLen;
+      // soft outer glow only, slightly longer
+      addCone(b.id + '_trg', u0, u, 0.35, 1.05, 48);
+      const last2 = items[items.length - 1];
+      if (last2 && last2.id === b.id + '_trg') last2.trailLen = worldLen * 1.1;
     }
   }
 

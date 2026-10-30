@@ -1,10 +1,10 @@
 import { DEFAULT_HAND } from './default_hand.js';
 import { h5DeviceSelectOptions } from './h5/index.js';
 import { PRESET_ORDER } from './level.js';
-export const SETTINGS_VERSION = 10;
+export const SETTINGS_VERSION = 12;
 export const STORE_KEY = 'voxelShootTool.settings';
 export const APP_ID = 'voxel-shoot-tool';
-export const APP_VERSION = '1.3.6';
+export const APP_VERSION = '1.3.7';
 
 const levelOpts = [
   ...PRESET_ORDER.map(id => [id, ({
@@ -23,7 +23,7 @@ export const GROUPS = [
     ['maxAmmo', '单块最多弹药', 'range', 88, 10, 200, 1],
     ['ammoStep', '弹药取整步长', 'range', 5, 1, 20, 1],
     ['startSlots', '开局预填槽位数', 'range', 2, 0, 5, 1],
-    ['voxScale', '体素整体缩放', 'range', 0.52, 0.3, 1.8, 0.01],
+    ['voxScale', '体素整体缩放', 'range', 0.46, 0.3, 1.8, 0.01],
     ['targetRotSpeed', '目标旋转速度(°/秒)', 'range', 10, 0, 90, 1],
     ['targetTiltX', '目标俯仰(弧度)', 'range', 0.88, -0.6, 1.2, 0.01],
     ['melonTiltX', '西瓜俯仰(弧度)', 'range', 1.12, -1.4, 1.5, 0.01],
@@ -60,12 +60,12 @@ export const GROUPS = [
   ['3D 渲染', [
     ['cam3dFov', '相机 FOV(°)', 'range', 30, 8, 60, 0.5],
     ['cam3dX', '相机 X', 'range', 0, -40, 40, 0.1],
-    ['cam3dY', '相机 Y', 'range', 11, 2, 40, 0.1],
+    ['cam3dY', '相机 Y', 'range', 11.6, 2, 40, 0.1],
     ['cam3dZ', '相机 Z', 'range', 35, 5, 50, 0.1],
     ['cam3dTX', '目标 X', 'range', 0, -20, 20, 0.1],
-    ['cam3dTY', '目标 Y', 'range', 7.0, -5, 20, 0.1],
+    ['cam3dTY', '目标 Y', 'range', 7.7, -5, 20, 0.1],
     ['cam3dTZ', '目标 Z', 'range', 0, -10, 20, 0.1],
-    ['targetY', '体素中心高度', 'range', 9.5, 2, 14, 0.1],
+    ['targetY', '体素中心高度', 'range', 10.3, 2, 14, 0.1],
     ['slotY', '槽位高度', 'range', 1.05, 0, 4, 0.05],
     ['slotZ', '槽位纵深 Z', 'range', 6.6, 2, 14, 0.05],
     ['slotSpan', '槽位总跨度', 'range', 10.8, 4, 16, 0.1],
@@ -77,7 +77,7 @@ export const GROUPS = [
     ['light3dAzim', '主光方位角', 'range', 320, 0, 360, 1],
     ['light3dElev', '主光仰角', 'range', 62, 5, 90, 1],
     ['uiDepth', 'UI锚点深度', 'range', 16, 6, 28, 0.5],
-    ['uiScale', 'UI立体块缩放', 'range', 0.37, 0.2, 1.5, 0.01],
+    ['uiScale', 'UI立体块缩放', 'range', 0.38, 0.2, 1.5, 0.01],
     ['mat3dRough', '默认粗糙度', 'range', 0.45, 0, 1, 0.01],
     ['voxRough', '体素粗糙度', 'range', 0.38, 0, 1, 0.01],
     ['tankRough', '炮台粗糙度', 'range', 0.18, 0, 1, 0.01],
@@ -245,6 +245,12 @@ export function migrate(obj) {
     },
     10: {
       debrisCount: 20, sparkCount: 14, ballGlow: 1.05, recoil: 0.2,
+    },
+    11: {
+      targetY: 9.5, voxScale: 0.52, cam3dTY: 7.0, cam3dY: 11, uiScale: 0.37, titleY: 52,
+    },
+    12: {
+      targetY: 10.6, voxScale: 0.54, cam3dTY: 8.0, cam3dY: 11.6, uiScale: 0.38,
     },
   };
   for (const nv of Object.keys(OLD).map(Number).sort((a,b)=>a-b)) if (v < nv) {
