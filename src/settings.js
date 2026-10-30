@@ -32,7 +32,7 @@ export const GROUPS = [
     ['bgColor', '背景色（参考深蓝）', 'color', '#243A63'],
     ['titleText', '顶部文案', 'text', '这游戏太上头了'],
     ['titleSize', '顶部字号', 'range', 46, 16, 72, 1],
-    ['titleBanner', '顶部白底横幅', 'bool', false],
+    ['titleBanner', '顶部白底横幅', 'bool', true],
     ['titleY', '顶部文字Y', 'range', 52, 10, 160, 1],
     ['titleColor', '顶部文字颜色', 'color', '#0a0a0a'],
     ['col_green', '绿色', 'color', '#7CFC00'],

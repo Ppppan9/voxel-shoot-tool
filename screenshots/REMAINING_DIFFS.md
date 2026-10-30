@@ -3,7 +3,7 @@
 - Launcher block = exact inventory block model (makeInvBlock), same scale (invScale) and tilt; no morph pick→fly→slot→fire; recoil = position only, leave = uniform fade/shrink.
 - Muzzle from block top. Trails longer/wider comets (span 11%, len 0.6–1.2, glow 1.8).
 - Hit FX toned to ref: smaller balls (ballR .09), less halo/glow, flash 1.1/120ms, sparks 6, more+smaller debris.
-- Inventory col gap 6→2. Title white banner now off by default (setting 顶部白底横幅).
+- Inventory col gap 6→2. Title white banner kept ON (ref f_0001 has it); toggle 顶部白底横幅 added.
 ## Leftovers
 - Ref hits read as many thin long white streaks + green shard spray; ours still has more round white blobs.
 - Ref fly-in is ~instant pop; ours is 320ms arc.
