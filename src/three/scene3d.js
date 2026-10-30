@@ -48,14 +48,22 @@ const shade = (hex, f) => { const c = new THREE.Color(hex); c.multiplyScalar(f);
 
 const numTex = new Map();
 export function numberCanvas(n) {
-  const c = document.createElement('canvas'); c.width = 256; c.height = 160;
+  // 广告：顶面大白粗圆角无衬线 + 轻暗描边/阴影（非细黑字）
+  const c = document.createElement('canvas'); c.width = 256; c.height = 256;
   const g = c.getContext('2d');
-  g.clearRect(0, 0, 256, 160);
-  g.font = '900 110px "Arial Black","Helvetica Neue",Arial,sans-serif';
-  g.textAlign = 'center'; g.textBaseline = 'middle'; g.lineJoin = 'round';
-  g.lineWidth = 18; g.strokeStyle = '#101018'; g.strokeText(String(n), 128, 88);
-  g.lineWidth = 8; g.strokeStyle = '#000'; g.strokeText(String(n), 128, 88);
-  g.fillStyle = '#ffffff'; g.fillText(String(n), 128, 88);
+  g.clearRect(0, 0, 256, 256);
+  const s = String(n);
+  const fs = s.length >= 3 ? 108 : s.length === 2 ? 132 : 152;
+  g.font = `900 ${fs}px "Nunito","Fredoka","Arial Rounded MT Bold","Helvetica Neue",Arial,sans-serif`;
+  g.textAlign = 'center'; g.textBaseline = 'middle'; g.lineJoin = 'round'; g.lineCap = 'round';
+  const cx = 128, cy = 128;
+  g.fillStyle = 'rgba(0,0,0,0.4)';
+  g.fillText(s, cx + 4, cy + 6);
+  g.lineWidth = Math.max(12, fs * 0.14);
+  g.strokeStyle = 'rgba(10,12,20,0.9)';
+  g.strokeText(s, cx, cy);
+  g.fillStyle = '#ffffff';
+  g.fillText(s, cx, cy);
   return c;
 }
 export function numberTexture(n) {
@@ -69,7 +77,7 @@ export function numberTexture(n) {
 
 // 广告风玩具炮台：敦实圆角块 + 半球炮塔 + 短上仰炮管 + 正面大白数字（借 block-shooter 分体结构）
 export function makeShooter(S, color, Wd) {
-  // 广告玩具坦克：近正方超圆角高光块 + 单顶炮口白球（非双 tip / 非履带块）
+  // 广告发射区：略扁圆角玩具块 + 顶面数字 + 单顶白尖（更小、略仰视）
   const hex = colorHex(S, color), lite = shade(hex, 1.16);
   const { w, d, h } = Wd.SH;
   const G = new THREE.Group(); G.name = 'shooter_' + color;
@@ -78,22 +86,23 @@ export function makeShooter(S, color, Wd) {
   const tankR = Math.min(0.5, (S.tankRough ?? 0.32));
   const rb = (W2, H2, D2, r) => new RoundedBoxGeometry(W2, H2, D2, 5, r);
 
-  // 近正方超圆角高光玩具坦克（广告 silhouette：单顶白尖，无双 tip）
-  const hull = new THREE.Mesh(rb(w * 0.98, h * 0.92, d * 0.98, 0.48), mat(S, hex, { rough: tankR }));
-  hull.name = 'hull'; hull.position.set(0, h * 0.46, 0); body.add(withOutline(hull, S));
-  // 顶高光软盖（更圆）
-  const cap = new THREE.Mesh(rb(w * 0.62, h * 0.14, d * 0.62, 0.22), mat(S, lite, { rough: Math.max(0.1, tankR - 0.1) }));
-  cap.name = 'cap'; cap.position.set(0, h * 0.9, 0); body.add(cap);
-  // 单顶炮口白球
-  const tip = new THREE.Mesh(new THREE.SphereGeometry(0.2, 16, 12), mat(S, '#ffffff', { rough: 0.14 }));
-  tip.position.set(0, h * 1.05, -d * 0.02); upper.add(tip);
+  // 略扁敦实体（广告相对目标更小）
+  const hull = new THREE.Mesh(rb(w * 1.0, h * 0.78, d * 1.0, 0.42), mat(S, hex, { rough: tankR }));
+  hull.name = 'hull'; hull.position.set(0, h * 0.39, 0); body.add(withOutline(hull, S));
+  const cap = new THREE.Mesh(rb(w * 0.72, h * 0.12, d * 0.72, 0.2), mat(S, lite, { rough: Math.max(0.1, tankR - 0.1) }));
+  cap.name = 'cap'; cap.position.set(0, h * 0.78, 0); body.add(cap);
+  // 单顶炮口白球（靠前上沿）
+  const tip = new THREE.Mesh(new THREE.SphereGeometry(0.16, 16, 12), mat(S, '#ffffff', { rough: 0.14 }));
+  tip.position.set(0, h * 0.92, -d * 0.28); upper.add(tip);
 
+  // 数字贴在顶面（广告：白粗字在上表面中央）
   const lab = new THREE.Mesh(
-    new THREE.PlaneGeometry(w * 0.86, h * 0.48),
+    new THREE.PlaneGeometry(w * 1.05, w * 1.05),
     new THREE.MeshBasicMaterial({ map: numberTexture(0), transparent: true, depthWrite: false, depthTest: true })
   );
   lab.name = 'label'; lab.renderOrder = 6;
-  lab.position.set(0, h * 0.48, d * 0.5);
+  lab.rotation.x = -Math.PI / 2;
+  lab.position.set(0, h * 0.84, 0.08);
   upper.add(lab);
 
   G.add(body, upper);
@@ -101,21 +110,24 @@ export function makeShooter(S, color, Wd) {
   return G;
 }
 
-// 库存块：敦实圆角立方 + 正面大白数字（与广告一致）
+// 库存块：敦实圆角立方 + 顶面大白数字（广告待选区）
 export function makeInvBlock(S, color) {
   const hex = colorHex(S, color), lite = shade(hex, 1.1);
   const G = new THREE.Group(); G.name = 'inv_' + color;
   const rough = S.voxRough ?? 0.4;
   const m = new THREE.Mesh(geos(S).inv, mat(S, hex, { rough }));
   m.name = 'hull'; G.add(withOutline(m, S));
-  // 顶面高光条
-  const top = new THREE.Mesh(new RoundedBoxGeometry(0.72, 0.12, 0.72, 2, 0.1), mat(S, lite, { rough: rough - 0.05 }));
-  top.position.set(0, 0.42, 0); G.add(top);
+  const top = new THREE.Mesh(new RoundedBoxGeometry(0.78, 0.1, 0.78, 2, 0.12), mat(S, lite, { rough: rough - 0.05 }));
+  top.position.set(0, 0.44, 0); G.add(top);
+  // 数字贴顶面中央
   const lab = new THREE.Mesh(
-    new THREE.PlaneGeometry(0.92, 0.55),
+    new THREE.PlaneGeometry(1.08, 1.08),
     new THREE.MeshBasicMaterial({ map: numberTexture(0), transparent: true, depthWrite: false, depthTest: true })
   );
-  lab.name = 'label'; lab.renderOrder = 6; lab.position.set(0, 0.02, 0.52); G.add(lab);
+  lab.name = 'label'; lab.renderOrder = 6;
+  lab.rotation.x = -Math.PI / 2;
+  lab.position.set(0, 0.52, 0);
+  G.add(lab);
   G.userData.label = lab; G.userData.color = color;
   return G;
 }
@@ -229,11 +241,13 @@ export function create3D(opt = {}) {
       const o = getObj(it); if (!o) continue; o.used = true; const ob = o.obj;
       ob.position.set(it.w[0], it.w[1], it.w[2]);
       if (it.faceCam && camera) {
-        // 微俯视朝向相机，保留立体感但数字可读
+        // 微仰对相机：顶面数字可见，块仍有立体厚度（广告发射/待选角度）
         ob.quaternion.copy(camera.quaternion);
-        // 去掉相机 roll，略抬抬头
         const e = new THREE.Euler().setFromQuaternion(ob.quaternion, 'YXZ');
-        e.z = 0; e.x = Math.min(0.35, Math.max(0.08, e.x * 0.35 + 0.18));
+        e.z = 0;
+        // 更大俯仰 → 看见顶面数字；发射区略仰
+        const isTank = it.asset.startsWith('shooter_') || it.asset.startsWith('cannon_');
+        e.x = isTank ? 0.5 : 0.55;
         ob.quaternion.setFromEuler(e);
       } else {
         ob.rotation.set(it.rx || 0, it.ry || 0, it.rz || 0);
@@ -265,15 +279,8 @@ export function create3D(opt = {}) {
         if (lab.userData.n !== n) { lab.material.map = numberTexture(n); lab.material.needsUpdate = true; lab.userData.n = n; }
         lab.material.opacity = it.numOp ?? 1;
         lab.visible = n != null && (it.numOp ?? 1) > 0.01;
-        // 仅轻微朝向相机（保持贴在正面，不整面 billboard 导致「数字掉到块下方」）
-        if (it.asset.startsWith('inv_')) {
-          lab.quaternion.copy(camera.quaternion);
-          ob.updateMatrixWorld();
-          const pq = new THREE.Quaternion(); ob.getWorldQuaternion(pq); lab.quaternion.premultiply(pq.invert());
-        } else {
-          // 炮台：数字固定在正面，随 upper 转
-          lab.rotation.set(0, 0, 0);
-        }
+        // 顶面数字：保持贴顶（-90°X），不 billboard
+        lab.rotation.set(-Math.PI / 2, 0, 0);
       }
       ob.visible = (it.op ?? 1) > 0.01;
     }

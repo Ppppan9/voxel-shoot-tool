@@ -7,15 +7,17 @@ import { SLOTS } from './level.js';
 export const UI = {
   titleY: 52,
   titleSize: 46,
-  // 5 槽横条（对齐 detail_02s）
-  slotY: 728,
-  slotH: 118,
-  slotW: 114,
+  // 发射区：广告更小的玩具块，坐在一条凹槽平台上
+  slotY: 738,
+  slotH: 96,
+  slotW: 94,
   slotGap: 12,
-  // 库存 4×4 — 贴紧参考的大方块
-  invTop: 855,
-  invCell: 96,
-  invGap: 10,
+  // 待选区：列间明显竖缝 + 列内几乎贴紧（f_0001 / detail_27s）
+  invTop: 852,
+  invCell: 100,
+  invColGap: 14,
+  invRowGap: -12,
+  invGap: 16, // legacy alias = col gap
 };
 
 export function slotRects() {
@@ -31,15 +33,19 @@ export function slotRects() {
 }
 
 export function invRects(cols, rows) {
-  const cell = UI.invCell, gap = UI.invGap;
-  const tw = cols * cell + (cols - 1) * gap;
+  const cell = UI.invCell;
+  // 4×4：列缝明显、列内贴紧；3×3：整体更紧（detail_27s）
+  let colGap = UI.invColGap ?? UI.invGap ?? 14;
+  let rowGap = UI.invRowGap ?? 2;
+  if (cols <= 3) { colGap = Math.min(colGap, 6); rowGap = Math.min(rowGap, -10); }
+  const tw = cols * cell + (cols - 1) * colGap;
   const x0 = (720 - tw) / 2;
   const out = [];
   for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) {
     out.push({
       vi: r * cols + c, col: c, row: r,
-      x: x0 + c * (cell + gap),
-      y: UI.invTop + r * (cell + gap),
+      x: x0 + c * (cell + colGap),
+      y: UI.invTop + r * (cell + rowGap),
       w: cell, h: cell,
     });
   }
@@ -114,16 +120,32 @@ function drawToyBlock(ctx, x, y, w, h, hex, num, opts = {}) {
 }
 
 
-/** 仅画空槽凹槽（炮台本身走 3D） */
+/** 发射区：一条凹槽圆角平台 + 细绿连线（对齐 f_0001） */
 export function drawEmptySlots(ctx, S, slotsState) {
   const rects = slotRects();
-  for (const r of rects) {
-    ctx.fillStyle = S.slotColor || '#15263E';
-    roundRect(ctx, r.x, r.y, r.w, r.h, 18); ctx.fill();
-    ctx.strokeStyle = 'rgba(255,255,255,0.10)';
-    ctx.lineWidth = 2;
-    roundRect(ctx, r.x + 2, r.y + 2, r.w - 4, r.h - 4, 16); ctx.stroke();
+  if (!rects.length) return rects;
+  const padX = 10, padY = 8;
+  const x0 = rects[0].x - padX;
+  const y0 = rects[0].y - padY;
+  const x1 = rects[rects.length - 1].x + rects[0].w + padX;
+  const h = rects[0].h + padY * 2;
+  // 整条暗蓝凹槽平台
+  ctx.fillStyle = S.slotColor || '#15263E';
+  roundRect(ctx, x0, y0, x1 - x0, h, 22); ctx.fill();
+  ctx.strokeStyle = 'rgba(255,255,255,0.08)';
+  ctx.lineWidth = 2;
+  roundRect(ctx, x0 + 2, y0 + 2, x1 - x0 - 4, h - 4, 20); ctx.stroke();
+  // 细绿连线串起 5 炮（f_0001）
+  const midY = y0 + h * 0.62;
+  ctx.strokeStyle = 'rgba(124, 252, 0, 0.55)';
+  ctx.lineWidth = 3;
+  ctx.lineCap = 'round';
+  ctx.beginPath();
+  ctx.moveTo(rects[0].x + rects[0].w * 0.5, midY);
+  for (let i = 1; i < rects.length; i++) {
+    ctx.lineTo(rects[i].x + rects[i].w * 0.5, midY);
   }
+  ctx.stroke();
   return rects;
 }
 

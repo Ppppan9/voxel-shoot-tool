@@ -109,7 +109,7 @@ function screenAnchor(sx, sy, depth = 14) {
 
 function slotAnchor(si, t, sh) {
   const r = UI2D.slotRects()[si];
-  const cx = r.x + r.w / 2, cy = r.y + r.h * 0.55;
+  const cx = r.x + r.w / 2, cy = r.y + r.h * 0.48;
   const bob = sh ? bobY(sh.id, t) * 0.15 : 0;
   const recoil = (sh?.recoil || 0) * 0.2;
   const w = screenAnchor(cx, cy + bob * 10 + recoil * 40, S.uiDepth || 14);
@@ -365,7 +365,7 @@ function scene(t) {
   const invH = UI2D.UI.invCell || 96;
   const base = S.uiScale || 0.48;
   const uiScale = base * (slotH / 118);
-  const invScale = base * (invH / 96) * 0.92;
+  const invScale = base * (invH / 96) * 1.02;
 
   // 槽位凹槽（静态盘由 scene3d 可选；此处动态炮台）
   G.slots.forEach((sh, si) => {
@@ -380,7 +380,8 @@ function scene(t) {
     items.push({
       id: sh.id, asset: 'shooter_' + sh.name, x: p[0], y: p[1], sx: 1, sy: 1, rot: 0, op,
       z: 20 + si, w: [sw.x, sw.y, sw.z], ws, num: sh.left, numOp: op,
-      bodyYaw: 0, turretYaw: sh.yaw || 0, ry: 0, faceCam: true,
+      // 发射区角度固定微仰，不跟 yaw 扭歪（广告顶面数字可读）
+      bodyYaw: 0, turretYaw: 0, ry: 0, faceCam: true,
     });
   });
 

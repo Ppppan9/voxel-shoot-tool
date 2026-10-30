@@ -1,10 +1,10 @@
 import { DEFAULT_HAND } from './default_hand.js';
 import { h5DeviceSelectOptions } from './h5/index.js';
 import { PRESET_ORDER } from './level.js';
-export const SETTINGS_VERSION = 6;
+export const SETTINGS_VERSION = 7;
 export const STORE_KEY = 'voxelShootTool.settings';
 export const APP_ID = 'voxel-shoot-tool';
-export const APP_VERSION = '1.3.2';
+export const APP_VERSION = '1.3.3';
 
 const levelOpts = [
   ...PRESET_ORDER.map(id => [id, ({
@@ -55,7 +55,7 @@ export const GROUPS = [
     ['ballGlow', '小球自发光', 'range', 0.65, 0, 2, 0.05],
     ['ballHalo', '小球光晕半径', 'range', 1.35, 1, 2.5, 0.05],
     ['ballHaloOp', '小球光晕不透明度', 'range', 0.06, 0, 0.8, 0.01],
-    ['invScale', '库存块缩放', 'range', 1.2, 0.6, 2.2, 0.01],
+    ['invScale', '库存块缩放', 'range', 1.05, 0.6, 2.2, 0.01],
   ]],
   ['3D 渲染', [
     ['cam3dFov', '相机 FOV(°)', 'range', 30, 8, 60, 0.5],
@@ -77,7 +77,7 @@ export const GROUPS = [
     ['light3dAzim', '主光方位角', 'range', 320, 0, 360, 1],
     ['light3dElev', '主光仰角', 'range', 62, 5, 90, 1],
     ['uiDepth', 'UI锚点深度', 'range', 16, 6, 28, 0.5],
-    ['uiScale', 'UI立体块缩放', 'range', 0.38, 0.25, 1.5, 0.01],
+    ['uiScale', 'UI立体块缩放', 'range', 0.36, 0.2, 1.5, 0.01],
     ['mat3dRough', '默认粗糙度', 'range', 0.45, 0, 1, 0.01],
     ['voxRough', '体素粗糙度', 'range', 0.38, 0, 1, 0.01],
     ['tankRough', '炮台粗糙度', 'range', 0.2, 0, 1, 0.01],
@@ -227,6 +227,9 @@ export function migrate(obj) {
     },
     6: {
       targetTiltX: 0.58, melonTiltX: -0.72, tankRough: 0.28, ballSpeed: 38, /* v6 clears old tilts */
+    },
+    7: {
+      uiScale: 0.38, invScale: 1.2,
     },
   };
   for (const nv of Object.keys(OLD).map(Number).sort((a,b)=>a-b)) if (v < nv) {
