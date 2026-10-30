@@ -1,21 +1,21 @@
-# Side-by-side vs reference — remaining differences (honest)
+# Side-by-side vs reference — remaining differences (v1.1.0)
 
-Screenshots: `side_*.png` (left = REF frame, right = GAME).
+Screenshots: `side_*.png` (left = REF, right = GAME). Compared after denser cages, toy tanks, face numerals, trails, camera fit.
 
-## Matched well
-- Dark navy vertical layout; top title 「这游戏太上头了」
-- 5 recessed slots + toy rounded cannons with white ammo numbers
-- Bottom inventory grid of numbered colored cubes
-- White spherical projectiles + colored voxel debris
-- Target shapes for sphere_cage / diamond_cage / cat / house / icecream / watermelon
-- Color-matched firing preference
+## Improved vs v1.0.0
+- Sphere/diamond: thick shell + white lat/lon ribs; denser green/white look
+- Cannons: track+hull+turret toy silhouette (from block-shooter patterns), large front numerals
+- Inventory: 4×4 / 3×3 packing, face-mounted white numbers (not badge-below)
+- Opening sphere slots L/R prefilled (~69/48 style)
+- White ball + additive trails; debris biased along hit normal
+- Title on light banner; navy `#243A63`; closer framing with full UI on canvas
+- White cage ribs hittable by any color (gameplay + ad-like chipping)
 
-## Remaining differences
-1. **Cannon silhouette**: ad tanks are slightly chunkier / more “vehicle-like”; ours are rounded cubes + stub barrel (close, not pixel-identical).
-2. **White cage ribs**: ad sphere/diamond cages have cleaner latitude/longitude ribs; ours are procedural lattice — density/pattern differ.
-3. **Voxel art fidelity**: cat / house / icecream / watermelon are recognizable but not mesh-traced from the ad; proportions and color block placement are approximate.
-4. **Inventory layout**: ad sometimes shows irregular/partial grids mid-montage; we use packed 3×3–4×4 from ammo plan.
-5. **Hand**: default mahjong finger (preset) vs ad’s white-glove cartoon hand; upload override available.
-6. **Lighting / materials**: soft plastic look is similar; specular highlights and AO are simpler than the ad render.
-7. **Montage timing / exact tap order**: auto-solve uses greedy “most exposed color” rather than frame-perfect ad tap sequence.
-8. **No full ad voiceover** shipped (by design); SFX are synthesized.
+## Still different (honest)
+1. **Sphere exact Rubik partition** — ad has sharper color-block regions; ours is shell+blobs, not mesh-traced.
+2. **Cannon chunkiness** — closer than v1.0 but still slightly less glossy/spherical than ad tanks.
+3. **Ice cream / house / cat / melon** — recognizable silhouettes & palette; voxel counts/proportions not pixel-matched to ad art.
+4. **Projectile trails** — present but thinner/shorter than ad motion streaks.
+5. **Hand** — toolkit default mahjong finger (required), not ad white glove; auto-solve greedy, not frame-perfect tap order.
+6. **Inventory ammo values** — planned for solvability; not identical to every ad frame’s numbers.
+7. **No ad voiceover** — synthesized SFX only.
