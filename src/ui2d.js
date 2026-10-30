@@ -8,16 +8,16 @@ export const UI = {
   titleY: 52,
   titleSize: 46,
   // 发射区：广告更小的玩具块，坐在一条凹槽平台上
-  slotY: 738,
-  slotH: 96,
-  slotW: 94,
-  slotGap: 12,
-  // 待选区：列间明显竖缝 + 列内几乎贴紧（f_0001 / detail_27s）
-  invTop: 852,
-  invCell: 100,
-  invColGap: 14,
-  invRowGap: -12,
-  invGap: 16, // legacy alias = col gap
+  slotY: 734,
+  slotH: 102,
+  slotW: 98,
+  slotGap: 10,
+  // 待选区：列缝清晰 + 列内近零/微重叠（f_0001）
+  invTop: 848,
+  invCell: 108,
+  invColGap: 12,
+  invRowGap: -36,
+  invGap: 12, // legacy alias = col gap
 };
 
 export function slotRects() {
@@ -37,7 +37,7 @@ export function invRects(cols, rows) {
   // 4×4：列缝明显、列内贴紧；3×3：整体更紧（detail_27s）
   let colGap = UI.invColGap ?? UI.invGap ?? 14;
   let rowGap = UI.invRowGap ?? 2;
-  if (cols <= 3) { colGap = Math.min(colGap, 6); rowGap = Math.min(rowGap, -10); }
+  if (cols <= 3) { colGap = Math.min(colGap, 4); rowGap = Math.min(rowGap, -40); }
   const tw = cols * cell + (cols - 1) * colGap;
   const x0 = (720 - tw) / 2;
   const out = [];

@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { coords, SLOTS } from './level.js';
 export const DW = 720, DH = 1280;
-export const SH = { w: 1.42, d: 1.35, h: 1.12 }; // 广告发射区：略扁玩具块（相对目标仍更小）
+export const SH = { w: 1.48, d: 1.42, h: 1.38 }; // 广告发射区：圆墩玩具块
 
 export function createWorld(S, L) {
   const W = L.W, H = L.H, D = L.D;

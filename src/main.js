@@ -235,7 +235,7 @@ function step(t) {
     if (!can && white >= 0) { for (const m of st.exp[white]) if (isShootable(L, st, m)) { can = true; break; } }
     if (!can) continue;
     const sw = slotAnchor(sh.si, t, sh);
-    const muz = [sw.x, sw.y + 0.55, sw.z - 0.2];
+    const muz = [sw.x, sw.y + 0.85, sw.z - 0.55]; // tip 前方偏上，出膛不挡顶面数字
     const tg = pickTargetLOS(sh, muz, G.rotY);
     if (!tg) continue;
     st.claimed[tg.m] = 1;
@@ -364,8 +364,8 @@ function scene(t) {
   const slotH = UI2D.slotRects()[0]?.h || 118;
   const invH = UI2D.UI.invCell || 96;
   const base = S.uiScale || 0.48;
-  const uiScale = base * (slotH / 118);
-  const invScale = base * (invH / 96) * 1.02;
+  const uiScale = base * (slotH / 110);
+  const invScale = base * (invH / 96) * 1.28;
 
   // 槽位凹槽（静态盘由 scene3d 可选；此处动态炮台）
   G.slots.forEach((sh, si) => {
@@ -413,10 +413,14 @@ function scene(t) {
 
   for (const b of G.balls) {
     if (!b.pos) continue;
-    const p = Wd.proj(...b.pos);
-    items.push({ id: b.id, asset: 'ball', x: p[0], y: p[1], sx: 1, sy: 1, rot: 0, op: 1, z: 50, w: b.pos.slice(), ws: 0.7 });
-    // 连续细白拖尾：炮口→当前球整段 + 重叠密段，读成广告细白线（非稀疏珠、非粗柱）
+    // 出膛初期不画大白球（避免盖住顶面数字）；稍远后再显示
     const u = Math.min(0.98, Math.max(0.04, (t - b.t0) / Math.max(1, b.dur)));
+    const p = Wd.proj(...b.pos);
+    if (u >= 0.12) {
+      const near = Math.min(1, (u - 0.12) / 0.12);
+      items.push({ id: b.id, asset: 'ball', x: p[0], y: p[1], sx: 1, sy: 1, rot: 0, op: 0.55 + 0.45 * near, z: 50, w: b.pos.slice(), ws: 0.45 + 0.3 * near });
+    }
+    // 连续细白拖尾：炮口→当前球整段 + 重叠密段，读成广告细白线（非稀疏珠、非粗柱）
     const addSeg = (id, ua, ub, op, z) => {
       const a = Math.max(0, Math.min(0.99, ua)), bb = Math.max(0, Math.min(0.99, ub));
       if (bb - a < 0.02) return;
