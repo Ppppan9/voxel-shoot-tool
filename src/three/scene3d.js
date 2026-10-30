@@ -69,46 +69,31 @@ export function numberTexture(n) {
 
 // 广告风玩具炮台：敦实圆角块 + 半球炮塔 + 短上仰炮管 + 正面大白数字（借 block-shooter 分体结构）
 export function makeShooter(S, color, Wd) {
-  // 广告感：圆润高光玩具坦克（一体敦实圆角体，弱履带线，短双炮口）
-  const hex = colorHex(S, color), dark = shade(hex, 0.78), lite = shade(hex, 1.14);
+  // 广告玩具坦克：近正方超圆角高光块 + 单顶炮口白球（非双 tip / 非履带块）
+  const hex = colorHex(S, color), lite = shade(hex, 1.16);
   const { w, d, h } = Wd.SH;
   const G = new THREE.Group(); G.name = 'shooter_' + color;
   const body = new THREE.Group(); body.name = 'body';
   const upper = new THREE.Group(); upper.name = 'upper';
-  const tankR = Math.min(0.55, (S.tankRough ?? 0.38));
-  const rb = (W2, H2, D2, r) => new RoundedBoxGeometry(W2, H2, D2, 4, r);
+  const tankR = Math.min(0.5, (S.tankRough ?? 0.32));
+  const rb = (W2, H2, D2, r) => new RoundedBoxGeometry(W2, H2, D2, 5, r);
 
-  // 主体：接近正方的大圆角块（广告主轮廓）
-  const hull = new THREE.Mesh(rb(w * 0.92, h * 0.78, d * 0.92, 0.34), mat(S, hex, { rough: tankR }));
-  hull.name = 'hull'; hull.position.set(0, h * 0.42, 0); body.add(withOutline(hull, S));
-  // 顶面高光盖
-  const cap = new THREE.Mesh(rb(w * 0.72, h * 0.14, d * 0.72, 0.16), mat(S, lite, { rough: tankR - 0.08 }));
-  cap.name = 'cap'; cap.position.set(0, h * 0.78, 0); body.add(cap);
-  // 弱履带：两侧细条，不抢主体
-  const trackG = rb(w * 0.14, h * 0.28, d * 0.88, 0.12);
-  for (const sx of [-1, 1]) {
-    const tr = new THREE.Mesh(trackG, mat(S, dark, { rough: tankR + 0.1 }));
-    tr.name = sx < 0 ? 'track_L' : 'track_R';
-    tr.position.set(sx * w * 0.46, h * 0.22, 0);
-    body.add(tr);
-  }
-  // 短双炮口（白头）
-  for (const sx of [-0.18, 0.18]) {
-    const bar = new THREE.Mesh(new THREE.CylinderGeometry(0.11, 0.14, d * 0.28, 12), mat(S, hex, { rough: tankR }));
-    bar.rotation.x = -Math.PI / 2 + 0.55;
-    bar.position.set(sx * w, h * 0.88, -d * 0.22);
-    upper.add(bar);
-    const tip = new THREE.Mesh(new THREE.SphereGeometry(0.13, 12, 10), mat(S, '#ffffff', { rough: 0.25 }));
-    tip.position.set(sx * w, h * 0.98, -d * 0.38);
-    upper.add(tip);
-  }
-  // 正面大号数字
+  // 近正方超圆角高光玩具坦克（广告 silhouette：单顶白尖，无双 tip）
+  const hull = new THREE.Mesh(rb(w * 0.98, h * 0.92, d * 0.98, 0.48), mat(S, hex, { rough: tankR }));
+  hull.name = 'hull'; hull.position.set(0, h * 0.46, 0); body.add(withOutline(hull, S));
+  // 顶高光软盖（更圆）
+  const cap = new THREE.Mesh(rb(w * 0.62, h * 0.14, d * 0.62, 0.22), mat(S, lite, { rough: Math.max(0.1, tankR - 0.1) }));
+  cap.name = 'cap'; cap.position.set(0, h * 0.9, 0); body.add(cap);
+  // 单顶炮口白球
+  const tip = new THREE.Mesh(new THREE.SphereGeometry(0.2, 16, 12), mat(S, '#ffffff', { rough: 0.14 }));
+  tip.position.set(0, h * 1.05, -d * 0.02); upper.add(tip);
+
   const lab = new THREE.Mesh(
-    new THREE.PlaneGeometry(w * 0.88, h * 0.5),
+    new THREE.PlaneGeometry(w * 0.86, h * 0.48),
     new THREE.MeshBasicMaterial({ map: numberTexture(0), transparent: true, depthWrite: false, depthTest: true })
   );
   lab.name = 'label'; lab.renderOrder = 6;
-  lab.position.set(0, h * 0.45, d * 0.48);
+  lab.position.set(0, h * 0.48, d * 0.5);
   upper.add(lab);
 
   G.add(body, upper);
@@ -159,15 +144,20 @@ export function makeBall(S) {
 // 运动拖尾：拉长半透明白胶囊
 export function makeTrail(S) {
   const g = new THREE.Group(); g.name = 'trail';
-  // 广告细白拖尾：细长半透明锥
+  // 广告细白连续线：针状锥 + 淡光晕（叠段后读成细白 streak）
   const m = new THREE.Mesh(
-    new THREE.CylinderGeometry(0.02, 0.07, 1, 8),
-    new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.55, depthWrite: false, blending: THREE.AdditiveBlending })
+    new THREE.CylinderGeometry(0.018, 0.055, 1, 8),
+    new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.88, depthWrite: false, blending: THREE.AdditiveBlending })
   );
   m.name = 'trail_core'; g.add(m);
+  const glow = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.04, 0.09, 1, 8),
+    new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.22, depthWrite: false, blending: THREE.AdditiveBlending })
+  );
+  glow.name = 'trail_glow'; g.add(glow);
   const tip = new THREE.Mesh(
-    new THREE.SphereGeometry(0.08, 10, 8),
-    new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.85, depthWrite: false, blending: THREE.AdditiveBlending })
+    new THREE.SphereGeometry(0.06, 10, 8),
+    new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.95, depthWrite: false, blending: THREE.AdditiveBlending })
   );
   tip.position.y = 0.5; g.add(tip);
   return g;
@@ -253,8 +243,17 @@ export function create3D(opt = {}) {
       const s = it.ws ?? 1;
       if (it.asset === 'ball') ob.scale.setScalar(S.ballR * s);
       else if (it.asset === 'trail') {
-        ob.scale.set(s * 0.35, it.trailLen || 1.2, s * 0.35);
-        if (it.trailQuat) ob.quaternion.copy(it.trailQuat);
+        const len = it.trailLen || 1.8;
+        ob.scale.set(0.13 * s, len, 0.13 * s);
+        if (it.rx != null || it.ry != null) ob.rotation.set(it.rx || 0, it.ry || 0, it.rz || 0);
+        else if (it.trailQuat) ob.quaternion.copy(it.trailQuat);
+        const op = it.op ?? 0.75;
+        ob.traverse(ch => {
+          if (ch.material && ch.material.transparent) {
+            const base = ch.name === 'trail_core' ? 0.88 : ch.name === 'trail_glow' ? 0.22 : 0.95;
+            ch.material.opacity = base * op;
+          }
+        });
       }
       else if (it.asset.startsWith('debris')) ob.scale.setScalar(s);
       else if (it.asset.startsWith('inv_')) ob.scale.setScalar(s * (it.faceCam ? 1 : (S.invScale || 1.35)));

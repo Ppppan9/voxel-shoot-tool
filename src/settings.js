@@ -1,10 +1,10 @@
 import { DEFAULT_HAND } from './default_hand.js';
 import { h5DeviceSelectOptions } from './h5/index.js';
 import { PRESET_ORDER } from './level.js';
-export const SETTINGS_VERSION = 5;
+export const SETTINGS_VERSION = 6;
 export const STORE_KEY = 'voxelShootTool.settings';
 export const APP_ID = 'voxel-shoot-tool';
-export const APP_VERSION = '1.3.1';
+export const APP_VERSION = '1.3.2';
 
 const levelOpts = [
   ...PRESET_ORDER.map(id => [id, ({
@@ -24,8 +24,9 @@ export const GROUPS = [
     ['ammoStep', '弹药取整步长', 'range', 5, 1, 20, 1],
     ['startSlots', '开局预填槽位数', 'range', 2, 0, 5, 1],
     ['voxScale', '体素整体缩放', 'range', 0.52, 0.3, 1.8, 0.01],
-    ['targetRotSpeed', '目标旋转速度(°/秒)', 'range', 18, 0, 90, 1],
-    ['targetTiltX', '目标俯仰(弧度)', 'range', 0.38, -0.6, 0.8, 0.01],
+    ['targetRotSpeed', '目标旋转速度(°/秒)', 'range', 10, 0, 90, 1],
+    ['targetTiltX', '目标俯仰(弧度)', 'range', 0.88, -0.6, 1.2, 0.01],
+    ['melonTiltX', '西瓜俯仰(弧度)', 'range', 1.12, -1.4, 1.5, 0.01],
   ]],
   ['外观', [
     ['bgColor', '背景色（参考深蓝）', 'color', '#243A63'],
@@ -76,14 +77,14 @@ export const GROUPS = [
     ['light3dAzim', '主光方位角', 'range', 320, 0, 360, 1],
     ['light3dElev', '主光仰角', 'range', 62, 5, 90, 1],
     ['uiDepth', 'UI锚点深度', 'range', 16, 6, 28, 0.5],
-    ['uiScale', 'UI立体块缩放', 'range', 0.42, 0.25, 1.5, 0.01],
+    ['uiScale', 'UI立体块缩放', 'range', 0.38, 0.25, 1.5, 0.01],
     ['mat3dRough', '默认粗糙度', 'range', 0.45, 0, 1, 0.01],
     ['voxRough', '体素粗糙度', 'range', 0.38, 0, 1, 0.01],
-    ['tankRough', '炮台粗糙度', 'range', 0.4, 0, 1, 0.01],
+    ['tankRough', '炮台粗糙度', 'range', 0.2, 0, 1, 0.01],
   ]],
   ['玩法与动画', [
     ['fireRate', '射速(发/秒)', 'range', 16, 1, 40, 0.5],
-    ['ballSpeed', '球速(格/秒)', 'range', 38, 5, 120, 1],
+    ['ballSpeed', '球速(格/秒)', 'range', 28, 5, 120, 1],
     ['ballArc', '球弧线高度', 'range', 1.8, 0, 8, 0.1],
     ['gravity', '碎屑重力', 'range', 28, 0, 80, 1],
     ['flyDur', '库存飞入槽位(ms)', 'range', 320, 80, 1200, 10],
@@ -223,6 +224,9 @@ export function migrate(obj) {
     },
     5: {
       /* restore 3D UI; keep band-friendly cam from v4 DEFS */
+    },
+    6: {
+      targetTiltX: 0.58, melonTiltX: -0.72, tankRough: 0.28, ballSpeed: 38, /* v6 clears old tilts */
     },
   };
   for (const nv of Object.keys(OLD).map(Number).sort((a,b)=>a-b)) if (v < nv) {

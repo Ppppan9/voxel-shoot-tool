@@ -21,7 +21,7 @@ await p.evaluate(() => localStorage.clear());
 await p.reload();
 await p.waitForFunction(() => window.__game);
 const pairs = [
-  ['sphere_cage', 'detail_02s.png'],
+  ['sphere_cage', 'f_0001.png'],
   ['diamond_cage', 'detail_08s.png'],
   ['cat', 'f_0030.png'],
   ['house', 'f_0040.png'],
@@ -32,8 +32,9 @@ for (const [lv, refName] of pairs) {
   await p.evaluate(lv => {
     __game.set('level', lv);
     __game.set('startSlots', 2);
-    __game.set('fireRate', 16); // 对比图要有弹道拖尾+碎屑
-    __game.set('targetRotSpeed', 16);
+    __game.set('fireRate', 22); // 对比图要有密集细白拖尾+碎屑
+    __game.set('ballSpeed', 24);
+    __game.set('targetRotSpeed', 6);
     __game.set('handShow', true);
     __game.set('handRest', false);
     __game.set('manualHand', true);
@@ -52,7 +53,7 @@ for (const [lv, refName] of pairs) {
     } catch (e) {}
     let t = performance.now();
     // ~1.2s 开火，确保球与碎屑可见
-    for (let i = 0; i < 22; i++) { t += 33; __game.renderAt(t); await new Promise(r => setTimeout(r, 0)); }
+    for (let i = 0; i < 28; i++) { t += 28; __game.renderAt(t); await new Promise(r => setTimeout(r, 0)); }
     window.__vclock = null;
   });
   await p.waitForTimeout(80);

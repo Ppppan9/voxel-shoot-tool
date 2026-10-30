@@ -58,14 +58,18 @@ export function shapeSphereCage(o = {}) {
     const r = Math.sqrt(r2) || 0.001;
     const lon = Math.atan2(z, x), lat = Math.asin(Math.max(-1, Math.min(1, y / r)));
     let c = cellColor(lon, lat);
-    // 白笼肋：每 45° 经线 + 赤道/南北纬，略厚一点像广告
-    const lonBand = Math.abs(((lon / (Math.PI / 4)) % 1 + 1) % 1);
-    const onLon = lonBand < 0.1 || lonBand > 0.9;
-    const onLat = Math.abs(lat) < 0.08 || Math.abs(Math.abs(lat) - 0.5) < 0.07;
-    if ((onLon || onLat) && r2 > (R - 1.35) ** 2) c = wh;
+    // 白笼肋：90° 经线（4 面 Rubik）+ 赤道/±45° 纬线；细锐缝（非糊白壳）
+    const lonBand = Math.abs(((lon / (Math.PI / 2)) % 1 + 1) % 1);
+    const onLon = lonBand < 0.085 || lonBand > 0.915;
+    const onLat = Math.abs(lat) < 0.075
+      || Math.abs(Math.abs(lat) - Math.PI / 4) < 0.075
+      || Math.abs(Math.abs(lat) - Math.PI / 2) < 0.09;
+    if ((onLon || onLat) && r2 > (R - 1.85) ** 2) c = wh;
     set(L, i, j, k, c);
   }
-  L.id = 'sphere_cage'; L.title = '笼球'; L.gridPref = { cols: 4, rows: 4 }; L.startAmmo = [69, null, null, null, 48];
+  L.id = 'sphere_cage'; L.title = '笼球'; L.gridPref = { cols: 4, rows: 4 };
+  // f_0001：五绿玩具炮同排
+  L.startAmmo = [{name:'green',ammo:18},{name:'green',ammo:19},{name:'green',ammo:22},{name:'green',ammo:16},{name:'green',ammo:20}];
   return trimUnused(L);
 }
 
@@ -193,25 +197,26 @@ export function shapeIceCream(o = {}) {
 }
 
 export function shapeWatermelon(o = {}) {
-  // detail_27s：红瓤切面朝相机（+worldZ = 小 k），绿皮在后
-  const W = 25, H = 25, D = 12;
+  // detail_27s：厚碗状切片 — 红切面朝相机，强 melonTiltX 时绿皮+奶油环立体可见
+  const W = 27, H = 27, D = 16;
   const L = empty(W, H, D, ['green', 'cream', 'red', 'black']);
   const gr = palIndex(L, 'green'), cr = palIndex(L, 'cream'), rd = palIndex(L, 'red'), bk = palIndex(L, 'black');
   const cx = (W - 1) / 2, cy = (H - 1) / 2, cz = (D - 1) / 2;
-  const Rx = 11.2, Ry = 11.2, Rz = 4.2;
+  const Rx = 12.0, Ry = 12.0, Rz = 6.4; // 更厚 → 大俯仰时绿皮厚度/碗口明显
   for (let j = 0; j < H; j++) for (let i = 0; i < W; i++) for (let k = 0; k < D; k++) {
     const x = (i - cx) / Rx, y = (j - cy) / Ry, z = (k - cz) / Rz;
     const r2 = x * x + y * y;
-    if (r2 > 1.02 || Math.abs(z) > 1.05) continue;
+    if (r2 > 1.02 || Math.abs(z) > 1.08) continue;
     const edge = Math.sqrt(r2);
-    // 注意：worldZ = -(k-cz)*vs → 小 k（z 小）朝相机
-    // 后侧（大 k / z 大）与外缘 → 绿皮
-    if (z > 0.35 || edge > 0.88) { set(L, i, j, k, gr); continue; }
-    if (edge > 0.78 || (z > 0.15 && edge > 0.65)) { set(L, i, j, k, cr); continue; }
+    // 小 z 朝相机 = 红切面；大 z = 绿背
+    if (z > 0.38 || edge > 0.9) { set(L, i, j, k, gr); continue; }
+    if (edge > 0.76 || (z > 0.15 && edge > 0.62)) { set(L, i, j, k, cr); continue; }
+    // 侧面绿皮厚度带（倾斜时读成碗边）
+    if (edge > 0.7 && z > -0.25) { set(L, i, j, k, gr); continue; }
     set(L, i, j, k, rd);
-    if (z < 0.15 && edge < 0.7) {
-      const s = (i * 5 + j * 7 + k * 3) % 8;
-      if (s === 0 || s === 4) set(L, i, j, k, bk);
+    if (z < 0.22 && edge < 0.7) {
+      const s = (i * 5 + j * 7 + k * 3) % 7;
+      if (s === 0 || s === 3) set(L, i, j, k, bk);
     }
   }
   L.id = 'watermelon'; L.title = '西瓜'; L.gridPref = { cols: 3, rows: 3 };
