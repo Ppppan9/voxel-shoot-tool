@@ -1,13 +1,15 @@
-# Remaining vs reference (v1.3.6)
+# Remaining vs reference (v1.3.8)
 
-Focus: softer motion-blur trails + brighter hit flash. Read firing stills vs detail_08s / detail_14s / f_0001.
+Focus of this bump: **发射区模型变形** + **待选区前后遮挡**.
 
-## This bump
-1. **拖尾再软** — tapered cylinders with radial/length **alpha texture** (soft limbs, no hard white edges); thin core + soft mid/glow; trail sits ~55% behind pearl.
-2. **命中闪光** — bright expanding `flash` burst at impact + denser white mist sparks + higher debris count/spread.
-3. Slightly stronger ball glow / recoil. Kept UI packing, top-face digits, tanks, sphere·melon.
+## Done in 1.3.8
+1. **Tanks** — rebuilt multi-hump chibi (dual green ear bumps + belly/cap parts, eyes, no white antenna stem). SH aspect ~0.71 (was ~1.45 flat). Tighter slot packing. Thicker front-face digits. Lower faceCam tilt so not top-squashed.
+2. **Inventory occlusion** — per-row `screenAnchor` depth (`invDepthStep`), mild scale falloff, renderOrder by row, dual studs, milder row overlap. Front (bottom) occludes back (top) with readable numbers.
 
 ## Still short of ad
-1. Trails closer to soft needles; ad motion-blur can still look softer/film-like.
-2. Hit flash brighter; extreme ad “hot” bloom may still exceed ours.
-3. Hand = toolkit finger (required).
+1. Title: white banner vs bare black text on blue (leftover from prior notes).
+2. Trails can still read rod-like edge-on in some stills.
+3. Tank aspect ~0.71 vs ref ~0.55–0.65; spacing still a bit roomier than ad.
+4. Digits thicker than 1.3.7 but ad fill can still look heavier.
+5. Hand = toolkit photo `hand.png` (required).
+6. Layout band knobs mostly kept (slotY 800 / invTop 960 / voxScale 0.46 / targetY 10.3 / cam3dTY 7.7); uiScale 0.38→0.40; slotW/H/gap + inv packing retuned for tank/inv fixes.

@@ -9,14 +9,14 @@ export const UI = {
   titleSize: 46,
   // 发射区：对齐 f_0001 绿峰 ~0.67；目标底→炮台呼吸空
   slotY: 800,
-  slotH: 96,
-  slotW: 96,
-  slotGap: 8,
+  slotH: 108,
+  slotW: 88,
+  slotGap: 4,
   // 待选区：对齐 f_0001 inv≈0.75；与发射区短空缝
   invTop: 960,
-  invCell: 90,
-  invColGap: 10,
-  invRowGap: -26,
+  invCell: 96,
+  invColGap: 6,
+  invRowGap: -18,
   invGap: 10, // legacy alias = col gap
 };
 

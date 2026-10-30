@@ -48,22 +48,24 @@ const shade = (hex, f) => { const c = new THREE.Color(hex); c.multiplyScalar(f);
 
 const numTex = new Map();
 export function numberCanvas(n) {
-  // 广告：正面粗圆角白实心字 + 轻暗描边（非手绘空心描边）
+  // 广告：正面更粗白实心字 + 重暗描边（对齐 f_0001 厚数字）
   const c = document.createElement('canvas'); c.width = 256; c.height = 160;
   const g = c.getContext('2d');
   g.clearRect(0, 0, 256, 160);
   const s = String(n);
-  const fs = s.length >= 3 ? 100 : s.length === 2 ? 128 : 148;
+  const fs = s.length >= 3 ? 108 : s.length === 2 ? 136 : 156;
   g.font = `900 ${fs}px "Arial Rounded MT Bold","Nunito","Helvetica Neue",Arial,sans-serif`;
   g.textAlign = 'center'; g.textBaseline = 'middle';
   g.lineJoin = 'round'; g.lineCap = 'round';
   const cx = 128, cy = 84;
-  g.fillStyle = 'rgba(0,0,0,0.28)';
-  g.fillText(s, cx + 2, cy + 3);
-  g.lineWidth = Math.max(8, fs * 0.09);
-  g.strokeStyle = 'rgba(10,12,18,0.75)';
+  g.fillStyle = 'rgba(0,0,0,0.32)';
+  g.fillText(s, cx + 3, cy + 4);
+  g.lineWidth = Math.max(12, fs * 0.14);
+  g.strokeStyle = 'rgba(10,12,18,0.88)';
   g.strokeText(s, cx, cy);
   g.fillStyle = '#ffffff';
+  g.fillText(s, cx, cy);
+  // 二次填充加厚笔画
   g.fillText(s, cx, cy);
   return c;
 }
@@ -76,7 +78,7 @@ export function numberTexture(n) {
   return numTex.get(n);
 }
 
-// 广告 chibi 玩具炮：敦实圆墩身体 + 小圆眼睛 + 短上仰白炮口 + 正面大白数字
+// 广告 multi-hump chibi 炮：竖敦实圆墩 + 双顶耳包 + 小眼睛 + 短白尖炮口 + 正面粗白数字
 export function makeShooter(S, color, Wd) {
   const hex = colorHex(S, color), lite = shade(hex, 1.14), dark = shade(hex, 0.82);
   const { w, d, h } = Wd.SH;
@@ -86,48 +88,54 @@ export function makeShooter(S, color, Wd) {
   const tankR = Math.min(0.42, (S.tankRough ?? 0.22));
   const rb = (W2, H2, D2, r) => new RoundedBoxGeometry(W2, H2, D2, 5, r);
 
-  // 敦实矮胖身体（chibi toy，非扁按钮）
-  const hull = new THREE.Mesh(rb(w * 0.98, h * 0.78, d * 0.92, 0.38), mat(S, hex, { rough: tankR }));
-  hull.name = 'hull'; hull.position.set(0, h * 0.4, 0); body.add(withOutline(hull, S));
-  // 头顶圆帽
-  const head = new THREE.Mesh(rb(w * 0.72, h * 0.28, d * 0.7, 0.28), mat(S, lite, { rough: Math.max(0.1, tankR - 0.08) }));
-  head.name = 'head'; head.position.set(0, h * 0.82, 0.02); body.add(head);
+  // 竖敦实主体（近正方偏高，大圆角）— 杜绝扁宽拉伸
+  const hull = new THREE.Mesh(rb(w * 0.96, h * 0.72, d * 0.94, 0.42), mat(S, hex, { rough: tankR }));
+  hull.name = 'hull'; hull.position.set(0, h * 0.38, 0); body.add(withOutline(hull, S));
+  // 中段鼓肚（multi-part 中间 hump，读出分层轮廓）
+  const belly = new THREE.Mesh(rb(w * 1.02, h * 0.28, d * 1.0, 0.36), mat(S, hex, { rough: tankR }));
+  belly.name = 'belly'; belly.position.set(0, h * 0.52, 0.02); body.add(belly);
+  // 顶盖软高光
+  const cap = new THREE.Mesh(rb(w * 0.78, h * 0.14, d * 0.72, 0.22), mat(S, lite, { rough: Math.max(0.1, tankR - 0.08) }));
+  cap.name = 'cap'; cap.position.set(0, h * 0.78, 0.02); body.add(cap);
 
-  // 两只小黑圆眼睛（正面）
+  // 双顶耳包 / multi-hump（广告 silhouette：左右两圆包，同色非白杆）
+  const humpR = Math.min(w, h) * 0.22;
+  for (const sx of [-1, 1]) {
+    const hump = new THREE.Mesh(new THREE.SphereGeometry(humpR, 14, 12), mat(S, hex, { rough: tankR }));
+    hump.name = sx < 0 ? 'hump_L' : 'hump_R';
+    hump.scale.set(1.15, 0.95, 1.05);
+    hump.position.set(sx * w * 0.30, h * 0.92, 0.0);
+    body.add(withOutline(hump, S));
+  }
+
+  // 两只小黑圆眼睛（正面偏上）
   const eyeMat = mat(S, '#1a1a22', { rough: 0.35 });
-  const eyeR = Math.min(w, h) * 0.07;
+  const eyeR = Math.min(w, h) * 0.065;
   for (const sx of [-1, 1]) {
     const eye = new THREE.Mesh(new THREE.SphereGeometry(eyeR, 12, 10), eyeMat);
     eye.name = sx < 0 ? 'eye_L' : 'eye_R';
-    eye.position.set(sx * w * 0.18, h * 0.55, d * 0.48);
+    eye.position.set(sx * w * 0.2, h * 0.62, d * 0.48);
     body.add(eye);
-    // 小白高光点
     const hi = new THREE.Mesh(new THREE.SphereGeometry(eyeR * 0.35, 8, 6), mat(S, '#ffffff', { rough: 0.2 }));
-    hi.position.set(sx * w * 0.18 + eyeR * 0.25, h * 0.55 + eyeR * 0.25, d * 0.48 + eyeR * 0.7);
+    hi.position.set(sx * w * 0.2 + eyeR * 0.28, h * 0.62 + eyeR * 0.28, d * 0.48 + eyeR * 0.7);
     body.add(hi);
   }
 
-  // 短白炮口（上仰，从头顶伸出）
-  const muzzle = new THREE.Mesh(
-    new THREE.CylinderGeometry(0.1, 0.13, h * 0.28, 12),
-    mat(S, '#f5f7fa', { rough: 0.18 })
-  );
-  muzzle.name = 'muzzle';
-  muzzle.rotation.x = -0.55;
-  muzzle.position.set(0, h * 1.02, -d * 0.08);
-  upper.add(withOutline(muzzle, S));
-  const tip = new THREE.Mesh(new THREE.SphereGeometry(0.11, 12, 10), mat(S, '#ffffff', { rough: 0.12 }));
+  // 短白炮口尖（夹在双 hump 之间、略前上仰，绝非长杆）
+  // 广告静帧无白天线：双绿 hump 即 silhouette；出膛白球由 ball 承担
+  // （保留极小暗色炮口凹点，避免顶面空洞）
+  const tip = new THREE.Mesh(new THREE.SphereGeometry(0.055, 10, 8), mat(S, shade(hex, 0.75), { rough: tankR }));
   tip.name = 'tip';
-  tip.position.set(0, h * 1.12, -d * 0.22);
+  tip.position.set(0, h * 0.95, -d * 0.22);
   upper.add(tip);
 
-  // 数字贴在正面（眼睛下方），随 faceCam 朝相机
+  // 正面粗白数字（眼睛下方），随 faceCam
   const lab = new THREE.Mesh(
-    new THREE.PlaneGeometry(w * 0.88, h * 0.42),
+    new THREE.PlaneGeometry(w * 0.95, h * 0.38),
     new THREE.MeshBasicMaterial({ map: numberTexture(0), transparent: true, depthWrite: false, depthTest: true })
   );
   lab.name = 'label'; lab.renderOrder = 8;
-  lab.position.set(0, h * 0.42, d * 0.5 + 0.02);
+  lab.position.set(0, h * 0.36, d * 0.5 + 0.02);
   upper.add(lab);
 
   G.add(body, upper);
@@ -135,22 +143,33 @@ export function makeShooter(S, color, Wd) {
   return G;
 }
 
-// 库存块：敦实圆角立方 + 正面大白数字（广告待选区）
+// 库存块：敦实圆角立方 + 顶双钉（LEGO 感）+ 正面粗白数字；厚度利于前后遮挡
 export function makeInvBlock(S, color) {
-  const hex = colorHex(S, color), lite = shade(hex, 1.1);
+  const hex = colorHex(S, color), lite = shade(hex, 1.12);
   const G = new THREE.Group(); G.name = 'inv_' + color;
   const rough = S.voxRough ?? 0.4;
   const m = new THREE.Mesh(geos(S).inv, mat(S, hex, { rough }));
   m.name = 'hull'; G.add(withOutline(m, S));
-  const top = new THREE.Mesh(new RoundedBoxGeometry(0.78, 0.1, 0.78, 2, 0.12), mat(S, lite, { rough: rough - 0.05 }));
-  top.position.set(0, 0.44, 0); G.add(top);
-  // 数字贴正面中央（朝相机）
+  // 顶面高光盖
+  const top = new THREE.Mesh(new RoundedBoxGeometry(0.78, 0.12, 0.78, 2, 0.14), mat(S, lite, { rough: Math.max(0.12, rough - 0.08) }));
+  top.position.set(0, 0.46, 0); G.add(top);
+  // 双钉 / dual studs（广告待选区顶排可见的小凸起）
+  for (const sx of [-1, 1]) {
+    const stud = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.12, 0.13, 0.12, 12),
+      mat(S, lite, { rough: Math.max(0.1, rough - 0.1) })
+    );
+    stud.name = sx < 0 ? 'stud_L' : 'stud_R';
+    stud.position.set(sx * 0.22, 0.56, -0.06);
+    G.add(stud);
+  }
+  // 数字贴正面中央（朝相机）；depthTest 开以便被前排挡住
   const lab = new THREE.Mesh(
-    new THREE.PlaneGeometry(0.92, 0.55),
+    new THREE.PlaneGeometry(0.95, 0.58),
     new THREE.MeshBasicMaterial({ map: numberTexture(0), transparent: true, depthWrite: false, depthTest: true })
   );
   lab.name = 'label'; lab.renderOrder = 8;
-  lab.position.set(0, 0.02, 0.52);
+  lab.position.set(0, 0.0, 0.52);
   G.add(lab);
   G.userData.label = lab; G.userData.color = color;
   return G;
@@ -299,8 +318,8 @@ export function create3D(opt = {}) {
         e.z = 0;
         // 更大俯仰 → 看见顶面数字；发射区略仰
         const isTank = it.asset.startsWith('shooter_') || it.asset.startsWith('cannon_');
-        // 略仰即可：正面眼睛+数字可读，勿压成顶视
-        e.x = isTank ? 0.22 : 0.28;
+        // 炮台更正视（避免俯视压扁）；库存略仰以读前后遮挡
+        e.x = isTank ? 0.08 : 0.20;
         ob.quaternion.setFromEuler(e);
       } else {
         ob.rotation.set(it.rx || 0, it.ry || 0, it.rz || 0);
@@ -346,6 +365,9 @@ export function create3D(opt = {}) {
         lab.visible = n != null && (it.numOp ?? 1) > 0.01;
         // 正面数字：贴在朝前平面，随整块 faceCam，不再压到顶面
         lab.rotation.set(0, 0, 0);
+      }
+      if (it.renderOrder != null) {
+        ob.traverse(ch => { if (ch.isMesh) ch.renderOrder = (ch.name === 'label' ? 8 : 0) + it.renderOrder; });
       }
       ob.visible = (it.op ?? 1) > 0.01;
     }

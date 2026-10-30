@@ -1,10 +1,10 @@
 import { DEFAULT_HAND } from './default_hand.js';
 import { h5DeviceSelectOptions } from './h5/index.js';
 import { PRESET_ORDER } from './level.js';
-export const SETTINGS_VERSION = 12;
+export const SETTINGS_VERSION = 13;
 export const STORE_KEY = 'voxelShootTool.settings';
 export const APP_ID = 'voxel-shoot-tool';
-export const APP_VERSION = '1.3.7';
+export const APP_VERSION = '1.3.8';
 
 const levelOpts = [
   ...PRESET_ORDER.map(id => [id, ({
@@ -77,7 +77,8 @@ export const GROUPS = [
     ['light3dAzim', '主光方位角', 'range', 320, 0, 360, 1],
     ['light3dElev', '主光仰角', 'range', 62, 5, 90, 1],
     ['uiDepth', 'UI锚点深度', 'range', 16, 6, 28, 0.5],
-    ['uiScale', 'UI立体块缩放', 'range', 0.38, 0.2, 1.5, 0.01],
+    ['invDepthStep', '库存行纵深步进', 'range', 0.38, 0, 2.5, 0.02],
+    ['uiScale', 'UI立体块缩放', 'range', 0.40, 0.2, 1.5, 0.01],
     ['mat3dRough', '默认粗糙度', 'range', 0.45, 0, 1, 0.01],
     ['voxRough', '体素粗糙度', 'range', 0.38, 0, 1, 0.01],
     ['tankRough', '炮台粗糙度', 'range', 0.18, 0, 1, 0.01],
@@ -251,6 +252,9 @@ export function migrate(obj) {
     },
     12: {
       targetY: 10.6, voxScale: 0.54, cam3dTY: 8.0, cam3dY: 11.6, uiScale: 0.38,
+    },
+    13: {
+      uiScale: 0.38, /* bump default 0.40 for taller multi-hump tanks */
     },
   };
   for (const nv of Object.keys(OLD).map(Number).sort((a,b)=>a-b)) if (v < nv) {

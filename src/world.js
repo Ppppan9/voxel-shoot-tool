@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { coords, SLOTS } from './level.js';
 export const DW = 720, DH = 1280;
-export const SH = { w: 1.62, d: 1.28, h: 1.12 }; // chibi 更矮更敦实
+export const SH = { w: 1.12, d: 1.18, h: 1.58 }; // 广告竖敦实 chibi（宽高比~0.7，对齐 ref）
 
 export function createWorld(S, L) {
   const W = L.W, H = L.H, D = L.D;

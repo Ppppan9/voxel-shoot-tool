@@ -119,7 +119,12 @@ function slotAnchor(si, t, sh) {
 function invAnchor(vi, cols, rows) {
   const r = UI2D.invRects(cols, rows)[vi];
   if (!r) return [0, 0, 12];
-  return screenAnchor(r.x + r.w / 2, r.y + r.h / 2, (S.uiDepth || 14) + 0.4);
+  const row = Math.floor(vi / cols);
+  // 前排（屏幕下方 = 大 row）更近相机 → 更小 depth；拉开前后遮挡
+  const step = S.invDepthStep ?? 0.38;
+  const base = (S.uiDepth || 14) + 0.4;
+  const depth = base + (rows - 1 - row) * step;
+  return screenAnchor(r.x + r.w / 2, r.y + r.h / 2, depth);
 }
 
 function rotatePoint(p, rotY) {
@@ -440,14 +445,20 @@ function scene(t) {
       return hit ? (vis.findIndex(b => b.gi === hit.gi)) : -1;
     })();
     vis.slice(0, cap).forEach((b, vi) => {
-      const w = invAnchor(vi, L.grid.cols, L.grid.rows);
+      const cols = L.grid.cols, rows = L.grid.rows;
+      const w = invAnchor(vi, cols, rows);
       const p = Wd.proj(w[0], w[1], w[2]);
       b._visGi = vi;
-      let ws = invScale;
+      const row = Math.floor(vi / cols);
+      // 前排略放大、后排略缩小 → 透视前后关系更接近广告
+      const rowFall = 1 + (row - (rows - 1) / 2) * 0.028;
+      let ws = invScale * rowFall;
       if (vi === pressVi) ws *= 1 - 0.16 * hand.press; // 点击压扁
+      // z 排序：前排（大 row）更大，保证透明数字叠对
       items.push({
-        id: 'inv_' + b.id, asset: 'inv_' + b.name, x: p[0], y: p[1], sx: 1, sy: 1, rot: 0, op: 1, z: 10 + vi,
+        id: 'inv_' + b.id, asset: 'inv_' + b.name, x: p[0], y: p[1], sx: 1, sy: 1, rot: 0, op: 1, z: 10 + row * cols + (vi % cols),
         w: [w[0], w[1] - (vi === pressVi ? hand.press * 0.08 : 0), w[2]], ws, num: b.left, numOp: 1, faceCam: true,
+        renderOrder: 20 + row,
       });
     });
   }
