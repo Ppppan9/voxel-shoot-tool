@@ -29,29 +29,27 @@ function fillEllipsoid(L, cx, cy, cz, rx, ry, rz, c, solid = true) {
 
 // —— 笼球：实心球 + 白经纬肋（参考 Rubik 风格分区）——
 export function shapeSphereCage(o = {}) {
-  // 参考 detail_02s：圆多色地球仪 + 细白经纬笼肋；薄壳无实心核，体素数可控
-  const R = o.R || 8, W = R * 2 + 1, H = R * 2 + 1, D = R * 2 + 1;
+  // 参考 f_0001 / detail_02s：魔方格多色壳 + 绿底 + 细白经纬笼
+  const R = o.R || 9, W = R * 2 + 1, H = R * 2 + 1, D = R * 2 + 1;
   const L = empty(W, H, D, ['white', 'green', 'yellow', 'orange', 'red', 'blue']);
   const cx = R, cy = R, cz = R;
   const wh = palIndex(L, 'white'), gr = palIndex(L, 'green'), yl = palIndex(L, 'yellow');
   const or = palIndex(L, 'orange'), rd = palIndex(L, 'red'), bl = palIndex(L, 'blue');
-  const shellIn = R - 1.45;
-  // 正面朝相机 (+Z → lon=π/2)。斑块按经纬格子填色，模拟参考「笼格内色块」
-  const sector = (lon, lat) => {
-    const f = ((lon - Math.PI / 2 + Math.PI * 3) % (Math.PI * 2)) - Math.PI; // 相对正面 -π..π
-    // 经度格 0..7，纬度格 0..5
+  const shellIn = R - 1.55;
+  // 8×6 经纬格 → 固定色表（正面 +Z 为中心列）
+  const TABLE = [
+    [gr, gr, yl, or, rd, gr, yl, gr],
+    [gr, yl, yl, or, rd, bl, gr, gr],
+    [yl, or, or, rd, rd, bl, gr, yl],
+    [gr, or, rd, rd, bl, gr, yl, or],
+    [gr, gr, yl, or, gr, yl, or, gr],
+    [or, or, gr, yl, gr, or, gr, or],
+  ];
+  const cellColor = (lon, lat) => {
+    const f = ((lon - Math.PI / 2 + Math.PI * 3) % (Math.PI * 2)) - Math.PI;
     const gi = Math.floor(((f + Math.PI) / (Math.PI * 2)) * 8) % 8;
-    const gj = Math.floor(((lat + Math.PI / 2) / Math.PI) * 6);
-    const table = [
-      [gr, gr, yl, or, rd, gr, yl, gr],
-      [gr, yl, yl, or, rd, bl, gr, gr],
-      [yl, yl, or, or, rd, rd, gr, yl],
-      [gr, or, or, rd, bl, gr, yl, gr],
-      [gr, gr, yl, or, gr, gr, or, gr],
-      [or, or, gr, gr, yl, or, gr, or],
-    ];
-    const row = table[Math.max(0, Math.min(5, gj))];
-    return row[gi];
+    const gj = Math.min(5, Math.max(0, Math.floor(((lat + Math.PI / 2) / Math.PI) * 6)));
+    return TABLE[gj][gi];
   };
   for (let j = 0; j < H; j++) for (let i = 0; i < W; i++) for (let k = 0; k < D; k++) {
     const x = i - cx, y = j - cy, z = k - cz;
@@ -59,12 +57,12 @@ export function shapeSphereCage(o = {}) {
     if (r2 > (R + 0.2) ** 2 || r2 < shellIn * shellIn) continue;
     const r = Math.sqrt(r2) || 0.001;
     const lon = Math.atan2(z, x), lat = Math.asin(Math.max(-1, Math.min(1, y / r)));
-    let c = sector(lon, lat);
-    // 细白经纬肋：每 45° + 赤道/南北回归线，宽 ~0.7 体素（参考细肋）
+    let c = cellColor(lon, lat);
+    // 白笼肋：每 45° 经线 + 赤道/南北纬，略厚一点像广告
     const lonBand = Math.abs(((lon / (Math.PI / 4)) % 1 + 1) % 1);
-    const onLon = lonBand < 0.07 || lonBand > 0.93;
-    const onLat = Math.abs(lat) < 0.055 || Math.abs(Math.abs(lat) - 0.5) < 0.055 || Math.abs(Math.abs(lat) - 0.95) < 0.06;
-    if ((onLon || onLat) && r2 > (R - 1.15) ** 2) c = wh;
+    const onLon = lonBand < 0.075 || lonBand > 0.925;
+    const onLat = Math.abs(lat) < 0.06 || Math.abs(Math.abs(lat) - 0.52) < 0.055;
+    if ((onLon || onLat) && r2 > (R - 1.2) ** 2) c = wh;
     set(L, i, j, k, c);
   }
   L.id = 'sphere_cage'; L.title = '笼球'; L.gridPref = { cols: 4, rows: 4 }; L.startAmmo = [69, null, null, null, 48];
@@ -129,30 +127,43 @@ export function shapeCat(o = {}) {
 }
 
 export function shapeHouse(o = {}) {
-  const W = 21, H = 17, D = 16;
-  const L = empty(W, H, D, ['red', 'blue', 'yellow', 'orange', 'cyan', 'white']);
+  // 参考 f_0040：斜透视小房 — 红屋顶+橙烟囱、蓝墙、黄门脸、米色底座
+  const W = 23, H = 18, D = 18;
+  const L = empty(W, H, D, ['red', 'blue', 'yellow', 'orange', 'cyan', 'white', 'tan', 'cream']);
   const rd = palIndex(L, 'red'), bl = palIndex(L, 'blue'), yl = palIndex(L, 'yellow');
   const or = palIndex(L, 'orange'), cy = palIndex(L, 'cyan'), wh = palIndex(L, 'white');
-  // 底座平台
-  for (let j = 0; j < 2; j++) for (let i = 1; i < W - 1; i++) for (let k = 1; k < D - 1; k++) set(L, i, j, k, or);
-  // 墙体实心
-  for (let j = 2; j < 9; j++) for (let i = 3; i < W - 3; i++) for (let k = 3; k < D - 3; k++) {
-    const front = k <= 4, side = i <= 4 || i >= W - 5;
-    if (front && i >= 7 && i <= 13) set(L, i, j, k, yl);
-    else if (side) set(L, i, j, k, bl);
-    else if ((i + j) % 6 === 0) set(L, i, j, k, cy);
+  const tn = palIndex(L, 'tan'), cr = palIndex(L, 'cream');
+  const box = (x0, x1, y0, y1, z0, z1, c) => {
+    for (let j = y0; j <= y1; j++) for (let i = x0; i <= x1; i++) for (let k = z0; k <= z1; k++)
+      if (i >= 0 && j >= 0 && k >= 0 && i < W && j < H && k < D) set(L, i, j, k, c);
+  };
+  // 底座平台（米色/橙）
+  box(1, W - 2, 0, 1, 1, D - 2, tn);
+  box(2, W - 3, 1, 1, 2, D - 3, or);
+  // 墙体外壳（空心，避免困死体素）
+  for (let j = 2; j <= 8; j++) for (let i = 4; i <= W - 5; i++) for (let k = 4; k <= D - 5; k++) {
+    const wall = (i === 4 || i === W - 5 || k === 4 || k === D - 5 || j === 2);
+    if (!wall) continue;
+    if (k === 4 && i >= 5 && i <= W - 6) set(L, i, j, k, yl); // 正面黄
     else set(L, i, j, k, bl);
   }
-  // 屋顶三角/金字塔
+  // 侧墙青点缀
+  for (let j = 3; j <= 7; j++) for (let i of [4, W - 5]) for (let k = 6; k <= D - 7; k++)
+    if ((j + k) % 4 === 0) set(L, i, j, k, cy);
+  // 门窗
+  box(10, 12, 2, 5, 4, 4, or);
+  box(6, 7, 5, 7, 4, 4, wh);
+  box(15, 16, 5, 7, 4, 4, wh);
+  // 红屋顶金字塔
   for (let j = 9; j < 16; j++) {
     const inset = j - 9;
-    for (let i = 3 + inset; i < W - 3 - inset; i++) for (let k = 3 + inset; k < D - 3 - inset; k++) set(L, i, j, k, rd);
+    box(4 + inset, W - 5 - inset, j, j, 4 + inset, D - 5 - inset, rd);
   }
-  // 门窗
-  for (let j = 2; j < 6; j++) for (let i = 9; i < 12; i++) set(L, i, j, 3, or);
-  for (let j = 5; j < 8; j++) for (let i = 5; i < 7; i++) set(L, i, j, 3, wh);
-  for (let j = 5; j < 8; j++) for (let i = 14; i < 16; i++) set(L, i, j, 3, wh);
+  // 橙烟囱
+  box(15, 17, 12, 16, 8, 10, or);
+  box(15, 17, 16, 16, 8, 10, tn);
   L.id = 'house'; L.title = '小房子'; L.gridPref = { cols: 3, rows: 3 };
+  L.startAmmo = [{name:'cyan',ammo:39},{name:'orange',ammo:72},{name:'yellow',ammo:78},null,{name:'blue',ammo:23}];
   return trimUnused(L);
 }
 
@@ -182,23 +193,34 @@ export function shapeIceCream(o = {}) {
 }
 
 export function shapeWatermelon(o = {}) {
-  const W = 20, H = 13, D = 15;
+  // detail_27s：鼓起的半个西瓜，切口朝前略上，绿皮/奶油/红瓤/黑籽
+  const W = 26, H = 18, D = 20;
   const L = empty(W, H, D, ['green', 'cream', 'red', 'black']);
   const gr = palIndex(L, 'green'), cr = palIndex(L, 'cream'), rd = palIndex(L, 'red'), bk = palIndex(L, 'black');
-  const cx = 10, cy = 2.2, cz = 7;
+  const cx = 13, cy = 5, cz = 9;
+  const tilt = 0.55;
+  const ct = Math.cos(tilt), st = Math.sin(tilt);
   for (let j = 0; j < H; j++) for (let i = 0; i < W; i++) for (let k = 0; k < D; k++) {
-    const x = (i - cx) / 9.0, y = (j - cy) / 6.0, z = (k - cz) / 7.0;
-    if (y < -0.02) continue;
+    const x = (i - cx) / 11.0;
+    const y0 = (j - cy) / 8.0;
+    const z0 = (k - cz) / 9.0;
+    const y = y0 * ct - z0 * st;
+    const z = y0 * st + z0 * ct;
+    if (z < -0.02) continue;
     const r2 = x * x + y * y + z * z;
-    if (r2 > 1.02) continue;
-    if (r2 > 0.86) set(L, i, j, k, gr);
-    else if (r2 > 0.76) set(L, i, j, k, cr);
-    else {
-      set(L, i, j, k, rd);
-      if (j > 3 && r2 < 0.62 && ((i * 3 + k * 5) % 7 === 0)) set(L, i, j, k, bk);
+    if (r2 > 1.12) continue;
+    // 实心半瓜（鼓起体积），外皮薄
+    if (r2 > 0.88) { set(L, i, j, k, gr); continue; }
+    if (r2 > 0.78) { set(L, i, j, k, cr); continue; }
+    set(L, i, j, k, rd);
+    // 籽：切口层密集
+    if (z > 0.02 && z < 0.55 && r2 < 0.65) {
+      const s = (i * 5 + k * 9 + j * 3) % 9;
+      if (s === 0 || s === 4) set(L, i, j, k, bk);
     }
   }
   L.id = 'watermelon'; L.title = '西瓜'; L.gridPref = { cols: 3, rows: 3 };
+  L.startAmmo = [{name:'red',ammo:28},{name:'red',ammo:29},{name:'red',ammo:33},{name:'black',ammo:26},{name:'cream',ammo:40}];
   return trimUnused(L);
 }
 
@@ -335,17 +357,18 @@ export function makeLevel(shapeId, o = {}) {
   // 开局预填：可用 startAmmo 指定每槽弹药（null=空），否则 startSlots 个
   const pre = [];
   if (vol.startAmmo) {
-    vol.startAmmo.forEach((ammo, i) => {
-      if (ammo == null || i >= SLOTS) return;
-      let bi = inv.findIndex(b => b.name === 'green');
+    vol.startAmmo.forEach((spec, i) => {
+      if (spec == null || i >= SLOTS) return;
+      const ammo = typeof spec === 'object' ? spec.ammo : spec;
+      const want = typeof spec === 'object' ? spec.name : null;
+      let bi = want ? inv.findIndex(b => b.name === want) : -1;
+      if (bi < 0) bi = inv.findIndex(b => b.ammo >= (ammo || 1) / 2);
       if (bi < 0) bi = 0;
       if (!inv.length) return;
       const b = inv[bi];
-      // 从该块扣减弹药放到槽位；块耗尽则移除
       const take = Math.min(b.ammo, ammo);
       pre[i] = { color: b.color, ammo: ammo, name: b.name, id: 'pre' + i };
       b.ammo -= take;
-      // 槽位显示广告数字，实际可打数用 ammo；库存侧扣 take 以保持总量近似
       if (b.ammo <= 0) inv.splice(bi, 1);
     });
   } else {

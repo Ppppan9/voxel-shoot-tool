@@ -113,6 +113,20 @@ function drawToyBlock(ctx, x, y, w, h, hex, num, opts = {}) {
   }
 }
 
+
+/** 仅画空槽凹槽（炮台本身走 3D） */
+export function drawEmptySlots(ctx, S, slotsState) {
+  const rects = slotRects();
+  for (const r of rects) {
+    ctx.fillStyle = S.slotColor || '#15263E';
+    roundRect(ctx, r.x, r.y, r.w, r.h, 18); ctx.fill();
+    ctx.strokeStyle = 'rgba(255,255,255,0.10)';
+    ctx.lineWidth = 2;
+    roundRect(ctx, r.x + 2, r.y + 2, r.w - 4, r.h - 4, 16); ctx.stroke();
+  }
+  return rects;
+}
+
 export function drawSlotsBar(ctx, S, slotsState, nowMs = 0) {
   const rects = slotRects();
   for (const r of rects) {

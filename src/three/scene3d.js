@@ -92,14 +92,16 @@ export function makeShooter(S, color, Wd) {
   const cap = new THREE.Mesh(rb(w * 0.62, h * 0.16, d * 0.7, 0.14), mat(S, lite, { rough: tankR - 0.05 }));
   cap.name = 'cap'; cap.position.set(0, h * 0.82, 0.02); body.add(cap);
 
-  // 半球炮塔
-  const tur = new THREE.Mesh(new THREE.SphereGeometry(1, 24, 16, 0, Math.PI * 2, 0, Math.PI / 2), mat(S, hex, { rough: tankR }));
-  tur.name = 'turret'; tur.scale.set(w * 0.34, h * 0.42, d * 0.36); tur.position.set(0, h * 0.78, 0.05);
+  // 敦实顶盖炮塔（少「青蛙眼」感，贴近广告玩具坦克）
+  const tur = new THREE.Mesh(rb(w * 0.55, h * 0.32, d * 0.55, 0.2), mat(S, hex, { rough: tankR }));
+  tur.name = 'turret'; tur.position.set(0, h * 0.92, 0.02);
   upper.add(withOutline(tur, S));
-  // 短炮管上仰
-  const bar = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.26, d * 0.5, 14), mat(S, hex, { rough: tankR }));
-  bar.name = 'barrel'; bar.rotation.x = -Math.PI / 2 + 0.55; bar.position.set(0, h * 0.98, -d * 0.18);
-  upper.add(withOutline(bar, S));
+  // 双短炮管上仰
+  for (const sx of [-0.22, 0.22]) {
+    const bar = new THREE.Mesh(new THREE.CylinderGeometry(0.14, 0.18, d * 0.42, 12), mat(S, lite, { rough: tankR }));
+    bar.name = 'barrel'; bar.rotation.x = -Math.PI / 2 + 0.5; bar.position.set(sx * w, h * 1.05, -d * 0.12);
+    upper.add(withOutline(bar, S));
+  }
 
   // 数字：贴在车身正面（大号）
   const lab = new THREE.Mesh(
@@ -159,7 +161,7 @@ export function makeBall(S) {
 export function makeTrail(S) {
   const g = new THREE.Group(); g.name = 'trail';
   const m = new THREE.Mesh(
-    new THREE.CylinderGeometry(0.12, 0.35, 1, 10),
+    new THREE.CylinderGeometry(0.06, 0.18, 1, 10),
     new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.45, depthWrite: false, blending: THREE.AdditiveBlending })
   );
   m.name = 'trail_core'; g.add(m); return g;
@@ -226,7 +228,16 @@ export function create3D(opt = {}) {
       if (!IS3D(it.asset) || !it.w) continue;
       const o = getObj(it); if (!o) continue; o.used = true; const ob = o.obj;
       ob.position.set(it.w[0], it.w[1], it.w[2]);
-      ob.rotation.set(it.rx || 0, it.ry || 0, it.rz || 0);
+      if (it.faceCam && camera) {
+        // 微俯视朝向相机，保留立体感但数字可读
+        ob.quaternion.copy(camera.quaternion);
+        // 去掉相机 roll，略抬抬头
+        const e = new THREE.Euler().setFromQuaternion(ob.quaternion, 'YXZ');
+        e.z = 0; e.x = Math.min(0.35, Math.max(0.08, e.x * 0.35 + 0.18));
+        ob.quaternion.setFromEuler(e);
+      } else {
+        ob.rotation.set(it.rx || 0, it.ry || 0, it.rz || 0);
+      }
       if (ob.userData.body) ob.userData.body.rotation.y = it.bodyYaw ?? 0;
       if (ob.userData.upper) ob.userData.upper.rotation.y = it.turretYaw ?? it.bodyYaw ?? 0;
       const s = it.ws ?? 1;
@@ -236,7 +247,9 @@ export function create3D(opt = {}) {
         if (it.trailQuat) ob.quaternion.copy(it.trailQuat);
       }
       else if (it.asset.startsWith('debris')) ob.scale.setScalar(s);
-      else if (it.asset.startsWith('inv_')) ob.scale.setScalar(s * (S.invScale || 1.35));
+      else if (it.asset.startsWith('inv_')) ob.scale.setScalar(s * (it.faceCam ? 1 : (S.invScale || 1.35)));
+      else if (it.faceCam && (it.asset.startsWith('shooter_') || it.asset.startsWith('cannon_')))
+        ob.scale.setScalar(s);
       else ob.scale.set(s * (it.wsx ?? 1), s * (it.wsy ?? 1), s * (it.wsz ?? 1));
       if (ob.userData.label) {
         const lab = ob.userData.label, n = it.num;

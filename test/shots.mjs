@@ -32,15 +32,15 @@ for (const [lv, refName] of pairs) {
   await p.evaluate(lv => {
     __game.set('level', lv);
     __game.set('startSlots', 2);
-    __game.set('fireRate', 0);
-    __game.set('targetRotSpeed', 14);
+    __game.set('fireRate', 16); // 对比图要有弹道拖尾+碎屑
+    __game.set('targetRotSpeed', 16);
     __game.set('handShow', true);
     __game.set('handRest', false);
     __game.set('manualHand', true);
+    __game.set('debrisCount', 14);
     __game.newGame();
   }, lv);
   await p.evaluate(async () => {
-    // 把手指放到库存第一格（对齐参考广告引导）
     try {
       const vis = __game.G.inv.filter(b => b.state === 'inv');
       if (vis.length) {
@@ -51,7 +51,8 @@ for (const [lv, refName] of pairs) {
       }
     } catch (e) {}
     let t = performance.now();
-    for (let i = 0; i < 16; i++) { t += 33; __game.renderAt(t); await new Promise(r => setTimeout(r, 0)); }
+    // ~1.2s 开火，确保球与碎屑可见
+    for (let i = 0; i < 22; i++) { t += 33; __game.renderAt(t); await new Promise(r => setTimeout(r, 0)); }
     window.__vclock = null;
   });
   await p.waitForTimeout(80);

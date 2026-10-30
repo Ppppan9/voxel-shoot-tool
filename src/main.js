@@ -2,6 +2,7 @@ import { GROUPS, DEFS, loadSettings, saveSettings, migrate, exportJSON, APP_ID }
 import { Sfx } from './audio.js';
 import { DEFAULT_HAND } from './default_hand.js';
 import { createWorld, DW, DH, SH } from './world.js';
+import * as THREE from 'three';
 import { create3D, makeShooter, geos, colorHex } from './three/scene3d.js';
 import {
   makeLevel, PRESETS, PRESET_ORDER, initState, removeVoxel, pickTarget, isShootable,
@@ -56,7 +57,7 @@ function startLevel(Lnew) {
     slots: new Array(SLOTS).fill(null),
     inv: L.inventory.map((b, i) => ({ ...b, left: b.ammo, gi: i, state: 'inv' })),
     balls: [], pops: [], debris: [], flyers: [],
-    rotY: 0, t0: now(),
+    rotY: (S.level === 'house' ? 0.65 : S.level === 'watermelon' ? -0.25 : 0), t0: now(),
   };
   // 预填槽位（允许稀疏：广告开局常为左右两端有炮）
   const pre = L.preSlots || [];
@@ -82,6 +83,7 @@ function bobY(id, t) {
   return Math.sin(t / S.bobPeriod * Math.PI * 2 + ph) * S.bobAmp;
 }
 
+
 function slotWorld(si, t, sh) {
   const [x, z] = Wd.slots[si];
   const y = Wd.slotY + (sh ? bobY(sh.id, t) : 0) - (sh?.recoil || 0);
@@ -92,6 +94,32 @@ function invWorld(gi) {
   const { cols, rows } = L.grid;
   const col = gi % cols, row = Math.floor(gi / cols);
   return Wd.gridPos(col, row, cols, rows);
+}
+
+/** 把屏幕像素锚到相机前方固定深度 → 3D 槽位/库存贴齐 v1.2 布局带，同时保留立体高光 */
+function screenAnchor(sx, sy, depth = 14) {
+  const cam = Wd.cam;
+  const ndcX = (sx / DW) * 2 - 1;
+  const ndcY = 1 - (sy / DH) * 2;
+  const v = new THREE.Vector3(ndcX, ndcY, 0.5).unproject(cam);
+  const dir = v.sub(cam.position).normalize();
+  const w = cam.position.clone().add(dir.multiplyScalar(depth));
+  return [w.x, w.y, w.z];
+}
+
+function slotAnchor(si, t, sh) {
+  const r = UI2D.slotRects()[si];
+  const cx = r.x + r.w / 2, cy = r.y + r.h * 0.55;
+  const bob = sh ? bobY(sh.id, t) * 0.15 : 0;
+  const recoil = (sh?.recoil || 0) * 0.2;
+  const w = screenAnchor(cx, cy + bob * 10 + recoil * 40, S.uiDepth || 14);
+  return { x: w[0], y: w[1], z: w[2], sx: cx, sy: cy };
+}
+
+function invAnchor(vi, cols, rows) {
+  const r = UI2D.invRects(cols, rows)[vi];
+  if (!r) return [0, 0, 12];
+  return screenAnchor(r.x + r.w / 2, r.y + r.h / 2, (S.uiDepth || 14) + 0.4);
 }
 
 function rotatePoint(p, rotY) {
@@ -143,14 +171,12 @@ function tapInv(gi) {
   const si = G.slots.findIndex(s => !s);
   if (si < 0) { sfx.play('error', S); status('没有空槽'); return false; }
   b.state = 'flying';
-  const vis = G.inv.filter(x => x.state === 'inv' || x.gi === gi);
   const vi = Math.max(0, G.inv.filter(x => x.state === 'inv').findIndex(x => x.gi === gi));
-  const fromC = UI2D.invCellCenter(vi, L.grid.cols, L.grid.rows);
-  const toC = UI2D.muzzleOfSlot(si);
+  const from = invAnchor(vi, L.grid.cols, L.grid.rows);
+  const toA = slotAnchor(si, now(), null);
   G.flyers.push({
     id: 'fly_' + b.id, color: b.color, name: b.name, ammo: b.left, gi, si,
-    t0: now(), dur: S.flyDur,
-    from2: [fromC.x, fromC.y], to2: [toC.x, toC.y + 40],
+    t0: now(), dur: S.flyDur, from, to: [toA.x, toA.y, toA.z],
   });
   G.inv = G.inv.filter(x => x.gi !== gi);
   sfx.play('pop', S);
@@ -198,7 +224,7 @@ function step(t) {
     G.flyers.splice(i, 1);
   }
 
-  // 射击（平面炮口 → 目标体素屏幕投影，白球走 2D；命中仍改 3D 体素）
+  // 射击：3D 炮口 → 体素；白球+拖尾 3D
   for (const sh of G.slots) {
     if (!sh || sh.state !== 'slot' || sh.left <= 0) continue;
     if (!(S.fireRate > 0)) continue;
@@ -208,30 +234,28 @@ function step(t) {
     const white = L.palette.indexOf('white');
     if (!can && white >= 0) { for (const m of st.exp[white]) if (isShootable(L, st, m)) { can = true; break; } }
     if (!can) continue;
-    const muz2 = UI2D.muzzleOfSlot(sh.si);
-    const tg = pickTargetLOS(sh, [0, Wd.targetY, 0], G.rotY);
+    const sw = slotAnchor(sh.si, t, sh);
+    const muz = [sw.x, sw.y + 0.55, sw.z - 0.2];
+    const tg = pickTargetLOS(sh, muz, G.rotY);
     if (!tg) continue;
     st.claimed[tg.m] = 1;
-    const hitScr = Wd.proj(...tg.p);
-    const p0 = [muz2.x, muz2.y], p1 = [hitScr[0], hitScr[1]];
-    const dist = Math.hypot(p1[0] - p0[0], p1[1] - p0[1]);
+    const len = Math.hypot(tg.p[0] - muz[0], tg.p[1] - muz[1], tg.p[2] - muz[2]);
     G.balls.push({
       id: 'ball_' + (++ballSeq), ph: 'fly', t0: t,
-      dur: Math.max(90, dist / (S.ballSpeed * 28) * 1000),
-      p0, p1, m: tg.m, nrm: tg.nrm, sh,
-      pos2: p0.slice(),
+      dur: Math.max(80, len / S.ballSpeed * 1000),
+      path: tg.path, m: tg.m, nrm: tg.nrm, sh, pos: muz.slice(),
     });
     sh.left--; sh.fireNext = t + 1000 / Math.max(0.1, S.fireRate); sh.recoil = S.recoil;
+    sh.yaw = Math.atan2(tg.p[0] - muz[0], -(tg.p[2] - muz[2]));
     playShot(t);
     if (sh.left <= 0) { sh.state = 'leaving'; sh.leaveT0 = t; }
   }
 
-  // 球飞行 / 命中（2D）
+  // 球飞行 / 命中（3D）
   for (let i = G.balls.length - 1; i >= 0; i--) {
     const b = G.balls[i];
     const u = clamp01((t - b.t0) / b.dur);
-    const arc = -Math.sin(u * Math.PI) * 40;
-    b.pos2 = [b.p0[0] + (b.p1[0] - b.p0[0]) * u, b.p0[1] + (b.p1[1] - b.p0[1]) * u + arc];
+    b.pos = b.path(u);
     if (u < 1) continue;
     if (st.vox[b.m]) {
       const col = st.vox[b.m] - 1;
@@ -335,8 +359,74 @@ function voxGroups(t) {
 }
 
 function scene(t) {
-  // 3D 仅碎屑（体素走 instanced）；炮台/库存/球为 2D UI
   const items = [];
+    // 按槽位屏幕高度换算世界缩放，避免立体块撑爆布局带
+  const slotH = UI2D.slotRects()[0]?.h || 118;
+  const invH = UI2D.UI.invCell || 96;
+  const base = S.uiScale || 0.48;
+  const uiScale = base * (slotH / 118);
+  const invScale = base * (invH / 96) * 0.92;
+
+  // 槽位凹槽（静态盘由 scene3d 可选；此处动态炮台）
+  G.slots.forEach((sh, si) => {
+    if (!sh) return;
+    const sw = slotAnchor(si, t, sh);
+    let op = 1, ws = uiScale;
+    if (sh.state === 'leaving') {
+      const u = clamp01((t - sh.leaveT0) / S.leaveDur);
+      op = 1 - easeOut(u); ws = uiScale * (1 - 0.25 * u);
+    }
+    const p = Wd.proj(sw.x, sw.y, sw.z);
+    items.push({
+      id: sh.id, asset: 'shooter_' + sh.name, x: p[0], y: p[1], sx: 1, sy: 1, rot: 0, op,
+      z: 20 + si, w: [sw.x, sw.y, sw.z], ws, num: sh.left, numOp: op,
+      bodyYaw: 0, turretYaw: sh.yaw || 0, ry: 0, faceCam: true,
+    });
+  });
+
+  for (const f of G.flyers) {
+    const u = easeIO(clamp01((t - f.t0) / f.dur));
+    const x = f.from[0] + (f.to[0] - f.from[0]) * u;
+    const y = f.from[1] + (f.to[1] - f.from[1]) * u + Math.sin(u * Math.PI) * (S.flyArc * 0.35);
+    const z = f.from[2] + (f.to[2] - f.from[2]) * u;
+    const p = Wd.proj(x, y, z);
+    items.push({
+      id: f.id, asset: 'inv_' + f.name, x: p[0], y: p[1], sx: 1, sy: 1, rot: 0, op: 1, z: 30,
+      w: [x, y, z], ws: invScale, num: f.ammo, numOp: 1, faceCam: true,
+    });
+  }
+
+  {
+    const vis = G.inv.filter(b => b.state === 'inv');
+    const cap = L.grid.cols * L.grid.rows;
+    vis.slice(0, cap).forEach((b, vi) => {
+      const w = invAnchor(vi, L.grid.cols, L.grid.rows);
+      const p = Wd.proj(w[0], w[1], w[2]);
+      b._visGi = vi;
+      items.push({
+        id: 'inv_' + b.id, asset: 'inv_' + b.name, x: p[0], y: p[1], sx: 1, sy: 1, rot: 0, op: 1, z: 10 + vi,
+        w: [w[0], w[1], w[2]], ws: invScale, num: b.left, numOp: 1, faceCam: true,
+      });
+    });
+  }
+
+  for (const b of G.balls) {
+    if (!b.pos) continue;
+    const p = Wd.proj(...b.pos);
+    items.push({ id: b.id, asset: 'ball', x: p[0], y: p[1], sx: 1, sy: 1, rot: 0, op: 1, z: 50, w: b.pos.slice(), ws: 1 });
+    const u = Math.min(0.95, Math.max(0.04, (t - b.t0) / Math.max(1, b.dur)));
+    const prev = b.path(Math.max(0, u - 0.12));
+    const dx = b.pos[0] - prev[0], dy = b.pos[1] - prev[1], dz = b.pos[2] - prev[2];
+    const len = Math.hypot(dx, dy, dz) || 0.01;
+    const mid = [(b.pos[0] + prev[0]) / 2, (b.pos[1] + prev[1]) / 2, (b.pos[2] + prev[2]) / 2];
+    const pitch = Math.acos(Math.max(-1, Math.min(1, dy / len))) - Math.PI / 2;
+    const yaw = Math.atan2(dx, -dz);
+    items.push({
+      id: b.id + '_tr', asset: 'trail', x: p[0], y: p[1], sx: 1, sy: 1, rot: 0, op: 0.7, z: 49,
+      w: mid, ws: 1, trailLen: Math.min(2.4, len * 2.2 + 0.5), rx: pitch, ry: yaw, rz: 0,
+    });
+  }
+
   for (const d of G.debris) {
     const u = clamp01((t - d.t0) / S.debrisLife);
     const p = Wd.proj(...d.p);
@@ -361,65 +451,21 @@ function draw(t) {
   ctx.fillStyle = S.bgColor || '#243A63';
   ctx.fillRect(0, 0, cv.width, cv.height);
 
-  // 3D：仅目标体素 + 碎屑；裁到标题下~槽位上，避免压住扁平 UI
+  // 槽位空凹槽先画在 2D（3D 炮台叠上）
+  ctx.save();
+  ctx.setTransform(v.k, 0, 0, v.k, 0, v.oy);
+  UI2D.drawEmptySlots(ctx, S, G.slots);
+  ctx.restore();
+
+  // 完整 3D：目标 + 炮台 + 库存 + 球/拖尾/碎屑（屏幕锚点保证布局带）
   if (r3d && !window.__no3d) {
     const img = r3d.render({ items, vox: voxGroups(t), rotY: G.rotY }, S, Math.round(DW * v.k), Math.round(DH * v.k));
-    const bandTop = 80, bandBot = 730; // 画布坐标
-    const dy = v.oy, k = v.k;
-    ctx.save();
-    ctx.beginPath();
-    ctx.rect(0, dy + bandTop * k, DW * k, (bandBot - bandTop) * k);
-    ctx.clip();
-    ctx.drawImage(img, 0, dy, DW * k, DH * k);
-    ctx.restore();
+    ctx.drawImage(img, 0, v.oy, DW * v.k, DH * v.k);
   }
 
   ctx.save();
   ctx.setTransform(v.k, 0, 0, v.k, 0, v.oy);
-
-  // 标题
   UI2D.drawTitle(ctx, S);
-
-  // 白球 + 拖尾（2D）
-  for (const b of G.balls) {
-    const u = clamp01((t - b.t0) / b.dur);
-    const x = b.pos2[0], y = b.pos2[1];
-    const x0 = b.p0[0], y0 = b.p0[1];
-    // 拖尾
-    const g = ctx.createLinearGradient(x0, y0, x, y);
-    g.addColorStop(0, 'rgba(255,255,255,0)');
-    g.addColorStop(1, 'rgba(255,255,255,0.75)');
-    ctx.strokeStyle = g; ctx.lineWidth = 10; ctx.lineCap = 'round';
-    ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x, y); ctx.stroke();
-    ctx.fillStyle = '#fff';
-    ctx.beginPath(); ctx.arc(x, y, 11, 0, Math.PI * 2); ctx.fill();
-    ctx.fillStyle = 'rgba(255,255,255,0.45)';
-    ctx.beginPath(); ctx.arc(x - 2, y - 3, 18, 0, Math.PI * 2); ctx.fill();
-  }
-
-  // 飞入动画（库存→槽）
-  for (const f of G.flyers) {
-    const u = easeIO(clamp01((t - f.t0) / f.dur));
-    const x = f.from2[0] + (f.to2[0] - f.from2[0]) * u;
-    const y = f.from2[1] + (f.to2[1] - f.from2[1]) * u - Math.sin(u * Math.PI) * 80;
-    const hex = colorHex(S, f.name);
-    // reuse mini block
-    const s = 70;
-    ctx.save();
-    // simple block
-    const grd = ctx.createLinearGradient(x - s/2, y - s/2, x - s/2, y + s/2);
-    grd.addColorStop(0, hex); grd.addColorStop(1, hex);
-    ctx.fillStyle = hex;
-    ctx.beginPath(); ctx.roundRect(x - s/2, y - s/2, s, s, 16); ctx.fill();
-    ctx.font = '900 28px Arial Black,sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    ctx.lineWidth = 6; ctx.strokeStyle = '#101018'; ctx.strokeText(String(f.ammo), x, y);
-    ctx.fillStyle = '#fff'; ctx.fillText(String(f.ammo), x, y);
-    ctx.restore();
-  }
-
-  // 平面槽位 + 库存（关键：对齐参考扁平 UI）
-  UI2D.drawSlotsBar(ctx, S, G.slots, t);
-  UI2D.drawInventory(ctx, S, G.inv, L.grid.cols, L.grid.rows);
 
   // 波纹
   for (const r of ripples) {

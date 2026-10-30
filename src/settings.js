@@ -1,10 +1,10 @@
 import { DEFAULT_HAND } from './default_hand.js';
 import { h5DeviceSelectOptions } from './h5/index.js';
 import { PRESET_ORDER } from './level.js';
-export const SETTINGS_VERSION = 4;
+export const SETTINGS_VERSION = 5;
 export const STORE_KEY = 'voxelShootTool.settings';
 export const APP_ID = 'voxel-shoot-tool';
-export const APP_VERSION = '1.2.0';
+export const APP_VERSION = '1.3.0';
 
 const levelOpts = [
   ...PRESET_ORDER.map(id => [id, ({
@@ -23,7 +23,7 @@ export const GROUPS = [
     ['maxAmmo', '单块最多弹药', 'range', 88, 10, 200, 1],
     ['ammoStep', '弹药取整步长', 'range', 5, 1, 20, 1],
     ['startSlots', '开局预填槽位数', 'range', 2, 0, 5, 1],
-    ['voxScale', '体素整体缩放', 'range', 0.62, 0.3, 1.8, 0.01],
+    ['voxScale', '体素整体缩放', 'range', 0.52, 0.3, 1.8, 0.01],
     ['targetRotSpeed', '目标旋转速度(°/秒)', 'range', 18, 0, 90, 1],
   ]],
   ['外观', [
@@ -49,10 +49,10 @@ export const GROUPS = [
     ['voxGap', '方块间缝(负=重叠)', 'range', -0.04, -0.08, 0.3, 0.005],
     ['voxRound', '方块圆角', 'range', 0.16, 0, 0.45, 0.01],
     ['outline3d', '卡通描边', 'range', 0.7, 0, 2, 0.05],
-    ['ballR', '小球半径', 'range', 0.32, 0.1, 0.8, 0.01],
+    ['ballR', '小球半径', 'range', 0.22, 0.1, 0.8, 0.01],
     ['ballGlow', '小球自发光', 'range', 0.65, 0, 2, 0.05],
-    ['ballHalo', '小球光晕半径', 'range', 1.9, 1, 2.5, 0.05],
-    ['ballHaloOp', '小球光晕不透明度', 'range', 0.28, 0, 0.8, 0.01],
+    ['ballHalo', '小球光晕半径', 'range', 1.35, 1, 2.5, 0.05],
+    ['ballHaloOp', '小球光晕不透明度', 'range', 0.12, 0, 0.8, 0.01],
     ['invScale', '库存块缩放', 'range', 1.2, 0.6, 2.2, 0.01],
   ]],
   ['3D 渲染', [
@@ -74,6 +74,8 @@ export const GROUPS = [
     ['light3dAmbient', '环境光', 'range', 0.85, 0, 4, 0.05],
     ['light3dAzim', '主光方位角', 'range', 320, 0, 360, 1],
     ['light3dElev', '主光仰角', 'range', 62, 5, 90, 1],
+    ['uiDepth', 'UI锚点深度', 'range', 16, 6, 28, 0.5],
+    ['uiScale', 'UI立体块缩放', 'range', 0.42, 0.25, 1.5, 0.01],
     ['mat3dRough', '默认粗糙度', 'range', 0.45, 0, 1, 0.01],
     ['voxRough', '体素粗糙度', 'range', 0.38, 0, 1, 0.01],
     ['tankRough', '炮台粗糙度', 'range', 0.4, 0, 1, 0.01],
@@ -218,7 +220,9 @@ export function migrate(obj) {
       cam3dFov: 32, cam3dY: 12.5, cam3dZ: 28, cam3dTY: 9.5, cam3dTZ: 0,
       targetY: 9.5, voxScale: 1.0, maxAmmo: 120,
     },
-    // note: v4 also introduces flat UI; cam defaults changed in DEFS
+    5: {
+      /* restore 3D UI; keep band-friendly cam from v4 DEFS */
+    },
   };
   for (const nv of Object.keys(OLD).map(Number).sort((a,b)=>a-b)) if (v < nv) {
     for (const k in OLD[nv]) if (s[k] === OLD[nv][k]) delete s[k];
