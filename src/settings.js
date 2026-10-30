@@ -1,10 +1,10 @@
 import { DEFAULT_HAND } from './default_hand.js';
 import { h5DeviceSelectOptions } from './h5/index.js';
 import { PRESET_ORDER } from './level.js';
-export const SETTINGS_VERSION = 9;
+export const SETTINGS_VERSION = 10;
 export const STORE_KEY = 'voxelShootTool.settings';
 export const APP_ID = 'voxel-shoot-tool';
-export const APP_VERSION = '1.3.5';
+export const APP_VERSION = '1.3.6';
 
 const levelOpts = [
   ...PRESET_ORDER.map(id => [id, ({
@@ -52,7 +52,7 @@ export const GROUPS = [
     ['voxRound', '方块圆角', 'range', 0.16, 0, 0.45, 0.01],
     ['outline3d', '卡通描边', 'range', 0.7, 0, 2, 0.05],
     ['ballR', '小球半径', 'range', 0.15, 0.08, 0.8, 0.01],
-    ['ballGlow', '小球自发光', 'range', 1.05, 0, 2, 0.05],
+    ['ballGlow', '小球自发光', 'range', 1.25, 0, 2.5, 0.05],
     ['ballHalo', '小球光晕半径', 'range', 1.65, 1, 2.8, 0.05],
     ['ballHaloOp', '小球光晕不透明度', 'range', 0.22, 0, 0.8, 0.01],
     ['invScale', '库存块缩放', 'range', 1.05, 0.6, 2.2, 0.01],
@@ -92,16 +92,18 @@ export const GROUPS = [
     ['leaveDur', '弹药打光离场(ms)', 'range', 280, 50, 1500, 10],
     ['popDur', '方块消除(ms)', 'range', 200, 0, 800, 10],
     ['jellyPop', '果冻挤压强度', 'range', 1.15, 0, 2, 0.05],
-    ['debrisCount', '碎屑数', 'range', 20, 0, 36, 1],
+    ['debrisCount', '碎屑数', 'range', 26, 0, 40, 1],
     ['debrisLife', '碎屑寿命(ms)', 'range', 900, 100, 2500, 50],
     ['debrisSize', '碎屑尺寸', 'range', 0.28, 0.05, 0.8, 0.01],
-    ['debrisSpread', '碎屑飞散', 'range', 2.2, 0.2, 4, 0.05],
-    ['sparkCount', '命中白雾数', 'range', 14, 0, 28, 1],
-    ['sparkLife', '白雾寿命(ms)', 'range', 520, 80, 1200, 10],
-    ['sparkSpread', '白雾飞散', 'range', 6.5, 0.5, 14, 0.1],
+    ['debrisSpread', '碎屑飞散', 'range', 2.5, 0.2, 4.5, 0.05],
+    ['sparkCount', '命中白雾数', 'range', 18, 0, 32, 1],
+    ['sparkLife', '白雾寿命(ms)', 'range', 580, 80, 1400, 10],
+    ['sparkSpread', '白雾飞散', 'range', 7.5, 0.5, 16, 0.1],
+    ['flashLife', '命中闪光(ms)', 'range', 200, 60, 600, 10],
+    ['flashSize', '命中闪光尺寸', 'range', 2.8, 0.5, 6, 0.1],
     ['bobAmp', '炮台呼吸幅度', 'range', 0.06, 0, 0.4, 0.01],
     ['bobPeriod', '呼吸周期(ms)', 'range', 600, 200, 2000, 10],
-    ['recoil', '射击后坐', 'range', 0.2, 0, 0.6, 0.01],
+    ['recoil', '射击后坐', 'range', 0.24, 0, 0.6, 0.01],
     ['winEnabled', '目标清空时通关', 'bool', true],
     ['loseRule', '失败判定', 'select', 'on', [['on', '无空槽且无法继续射击 → 失败'], ['off', '不判失败']]],
   ]],
@@ -240,6 +242,9 @@ export function migrate(obj) {
     9: {
       ballR: 0.18, ballGlow: 0.65, ballHaloOp: 0.06, fireRate: 16, ballSpeed: 28,
       debrisCount: 14, recoil: 0.08,
+    },
+    10: {
+      debrisCount: 20, sparkCount: 14, ballGlow: 1.05, recoil: 0.2,
     },
   };
   for (const nv of Object.keys(OLD).map(Number).sort((a,b)=>a-b)) if (v < nv) {

@@ -32,14 +32,16 @@ for (const [lv, refName] of pairs) {
   await p.evaluate(lv => {
     __game.set('level', lv);
     __game.set('startSlots', 2);
-    __game.set('fireRate', 14);
-    __game.set('ballSpeed', 14);
-    __game.set('debrisCount', 22);
+    __game.set('fireRate', 15);
+    __game.set('ballSpeed', 15);
+    __game.set('debrisCount', 26);
+    __game.set('sparkCount', 18);
     __game.set('targetRotSpeed', 6);
     __game.set('handShow', true);
     __game.set('handRest', false);
     __game.set('manualHand', true);
-    __game.set('debrisCount', 22);
+    __game.set('debrisCount', 26);
+    __game.set('sparkCount', 18);
     __game.set('pressEnabled', true);
     __game.newGame();
   }, lv);
@@ -55,8 +57,26 @@ for (const [lv, refName] of pairs) {
       }
     } catch (e) {}
     let t = performance.now();
-    // ~1.2s 开火，确保球与碎屑可见
-    for (let i = 0; i < 36; i++) { t += 24; __game.renderAt(t); await new Promise(r => setTimeout(r, 0)); }
+    let best = t, bestScore = -1;
+    for (let i = 0; i < 48; i++) {
+      t += 22; __game.renderAt(t); await new Promise(r => setTimeout(r, 0));
+      const balls = __game.G.balls || [];
+      const mid = balls.filter(b => {
+        const u = (t - b.t0) / Math.max(1, b.dur);
+        return u > 0.25 && u < 0.85;
+      }).length;
+      const sparks = (__game.G.sparks || []).length + (__game.G.flashes || []).length;
+      const score = mid * 100 + (mid > 0 ? sparks * 3 + (__game.G.debris || []).length : 0);
+      if (score > bestScore) { bestScore = score; best = t; }
+    }
+    if (bestScore < 100) {
+      // fallback: last frame that still has flying balls
+      for (let i = 0; i < 20; i++) {
+        t += 20; __game.renderAt(t); await new Promise(r => setTimeout(r, 0));
+        if ((__game.G.balls || []).length) best = t;
+      }
+    }
+    __game.renderAt(best);
     window.__vclock = null;
   });
   await p.waitForTimeout(80);

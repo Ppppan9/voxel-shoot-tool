@@ -9,7 +9,7 @@ export const PALETTE = {
   white: '#F5F7FA', cyan: '#22D3EE', brown: '#8B5A2B', tan: '#E0B07A', cream: '#FFE8C8',
 };
 export const colorHex = (S, n) => S['col_' + n] || PALETTE[n] || '#888888';
-const IS3D_RE = /^(shooter|cannon|ball|spark|debris|slot|inv|trail|num)/;
+const IS3D_RE = /^(shooter|cannon|ball|spark|flash|debris|slot|inv|trail|num)/;
 export const IS3D = a => IS3D_RE.test(a || '');
 
 let shared = null;
@@ -175,34 +175,52 @@ export function makeBall(S) {
   return g;
 }
 
-// 广告子弹拖尾：半透明锥形白针（炮口宽 → 球端尖）+ 软光晕
+// 软运动模糊拖尾：锥形圆柱 + 径向/轴向 alpha 贴图（无硬边、任意角度可见）
+let _trailTex = null;
+function trailTexture() {
+  if (_trailTex) return _trailTex;
+  const W = 64, H = 128;
+  const c = document.createElement('canvas'); c.width = W; c.height = H;
+  const g = c.getContext('2d');
+  const img = g.createImageData(W, H);
+  for (let y = 0; y < H; y++) {
+    const v = y / (H - 1); // 0=尖(球) … 1=宽(后)
+    const along = Math.pow(Math.sin(Math.PI * Math.min(1, v * 1.08)), 0.7) * (1 - Math.pow(v, 1.45) * 0.5);
+    for (let x = 0; x < W; x++) {
+      // u around cylinder: 0..1 → treat as distance from silhouette center via cos
+      const ang = (x / W) * Math.PI * 2;
+      // soft limb darkening: brighter facing camera approx via |sin| falloff on edge
+      const edge = Math.pow(Math.abs(Math.sin(ang)), 0.35);
+      const radial = Math.exp(-Math.pow(1 - edge, 2) * 1.8) * 0.35 + edge * 0.65;
+      const a = Math.max(0, Math.min(1, along * radial * 0.95));
+      const i = (y * W + x) * 4;
+      img.data[i] = 255; img.data[i + 1] = 255; img.data[i + 2] = 255;
+      img.data[i + 3] = Math.round(a * 220);
+    }
+  }
+  g.putImageData(img, 0, 0);
+  _trailTex = new THREE.CanvasTexture(c);
+  _trailTex.colorSpace = THREE.SRGBColorSpace;
+  _trailTex.needsUpdate = true;
+  return _trailTex;
+}
 export function makeTrail(S) {
   const g = new THREE.Group(); g.name = 'trail';
-  // Cylinder: rTop(+Y)=尖朝球，rBottom(-Y)=宽朝炮口
-  const core = new THREE.Mesh(
-    new THREE.CylinderGeometry(0.002, 0.042, 1, 10, 1, true),
-    new THREE.MeshBasicMaterial({
-      color: 0xffffff, transparent: true, opacity: 0.38, depthWrite: false,
-      blending: THREE.AdditiveBlending, side: THREE.DoubleSide,
-    })
-  );
-  core.name = 'trail_core'; g.add(core);
-  const mid = new THREE.Mesh(
-    new THREE.CylinderGeometry(0.006, 0.07, 1, 10, 1, true),
-    new THREE.MeshBasicMaterial({
-      color: 0xffffff, transparent: true, opacity: 0.2, depthWrite: false,
-      blending: THREE.AdditiveBlending, side: THREE.DoubleSide,
-    })
-  );
-  mid.name = 'trail_mid'; g.add(mid);
-  const glow = new THREE.Mesh(
-    new THREE.CylinderGeometry(0.012, 0.11, 1, 8, 1, true),
-    new THREE.MeshBasicMaterial({
-      color: 0xfff8ff, transparent: true, opacity: 0.09, depthWrite: false,
-      blending: THREE.AdditiveBlending, side: THREE.DoubleSide,
-    })
-  );
-  glow.name = 'trail_glow'; g.add(glow);
+  const tex = trailTexture();
+  const mk = (rt, rb, op, name) => {
+    const m = new THREE.Mesh(
+      new THREE.CylinderGeometry(rt, rb, 1, 16, 1, true),
+      new THREE.MeshBasicMaterial({
+        map: tex, color: 0xffffff, transparent: true, opacity: op, depthWrite: false,
+        blending: THREE.AdditiveBlending, side: THREE.DoubleSide,
+      })
+    );
+    m.name = name; return m;
+  };
+  // 尖(+Y球) ← 宽(-Y后)：细软锥 + 外晕
+  g.add(mk(0.0025, 0.032, 0.75, 'trail_core'));
+  g.add(mk(0.006, 0.055, 0.28, 'trail_mid'));
+  g.add(mk(0.012, 0.085, 0.12, 'trail_glow'));
   return g;
 }
 
@@ -257,7 +275,7 @@ export function create3D(opt = {}) {
       let obj; const k = it.asset;
       if (k.startsWith('shooter_') || k.startsWith('cannon_')) obj = makeShooter(S0, k.split('_')[1], Wd);
       else if (k.startsWith('inv_')) obj = makeInvBlock(S0, k.slice(4));
-      else if (k === 'ball' || k === 'spark') obj = makeBall(S0);
+      else if (k === 'ball' || k === 'spark' || k === 'flash') obj = makeBall(S0);
       else if (k === 'trail') obj = makeTrail(S0);
       else if (k.startsWith('debris_')) { obj = new THREE.Mesh(geos(S0).debris, mat(S0, colorHex(S0, k.slice(7)), { name: 'mat_debris_' + k.slice(7) })); obj.name = 'debris'; }
       else return null;
@@ -286,25 +304,28 @@ export function create3D(opt = {}) {
       if (ob.userData.body) ob.userData.body.rotation.y = it.bodyYaw ?? 0;
       if (ob.userData.upper) ob.userData.upper.rotation.y = it.turretYaw ?? it.bodyYaw ?? 0;
       const s = it.ws ?? 1;
-      if (it.asset === 'ball' || it.asset === 'spark') {
-        ob.scale.setScalar((it.asset === 'spark' ? (S.ballR * 0.55) : S.ballR) * s);
+      if (it.asset === 'ball' || it.asset === 'spark' || it.asset === 'flash') {
+        const mul = it.asset === 'flash' ? (S.ballR * 2.4) : it.asset === 'spark' ? (S.ballR * 0.7) : S.ballR;
+        ob.scale.setScalar(mul * s);
         const bop = it.op ?? 1;
         ob.traverse(ch => {
           if (!ch.material) return;
           if (ch.userData._bop == null && ch.material.opacity != null) ch.userData._bop = ch.material.opacity;
           if (ch.material.transparent && ch.userData._bop != null) ch.material.opacity = ch.userData._bop * bop;
+          if (ch.material.emissiveIntensity != null) ch.material.emissiveIntensity = (it.asset === 'flash' ? 2.2 : 0.8) * bop;
         });
       }
       else if (it.asset === 'trail') {
         const len = it.trailLen || 1.8;
-        const thick = (it.trailThick ?? 0.7) * s;
+        const thick = (it.trailThick ?? 0.55) * s;
+        // PlaneGeometry 默认 XY；厚=X，长=Y，Z 忽略
         ob.scale.set(thick, len, thick);
         if (it.rx != null || it.ry != null) ob.rotation.set(it.rx || 0, it.ry || 0, it.rz || 0);
         else if (it.trailQuat) ob.quaternion.copy(it.trailQuat);
         const op = it.op ?? 0.75;
         ob.traverse(ch => {
           if (ch.material && ch.material.transparent) {
-            const base = ch.name === 'trail_core' ? 0.42 : ch.name === 'trail_mid' ? 0.2 : ch.name === 'trail_glow' ? 0.09 : 0.3;
+            const base = ch.name === 'trail_core' ? 0.7 : ch.name === 'trail_mid' ? 0.32 : ch.name === 'trail_glow' ? 0.14 : 0.35;
             ch.material.opacity = base * op;
           }
         });

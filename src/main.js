@@ -56,7 +56,7 @@ function startLevel(Lnew) {
   G = {
     slots: new Array(SLOTS).fill(null),
     inv: L.inventory.map((b, i) => ({ ...b, left: b.ammo, gi: i, state: 'inv' })),
-    balls: [], pops: [], debris: [], sparks: [], flyers: [],
+    balls: [], pops: [], debris: [], sparks: [], flashes: [], flyers: [],
     rotY: (S.level === 'sphere_cage' ? 1.15 : S.level === 'diamond_cage' ? 0.85 : S.level === 'house' ? 0.65 : S.level === 'watermelon' ? -0.72 : 0), t0: now(),
   };
   // 预填槽位（允许稀疏：广告开局常为左右两端有炮）
@@ -278,17 +278,23 @@ function step(t) {
           ],
         });
       }
-      // 命中白雾/火花（广告 soft white mist）
-      const nSp = Math.max(4, Math.round((S.sparkCount ?? 8)));
+      // 命中：中心亮闪光 + 白雾火花（广告 hot flash）
+      G.flashes.push({
+        id: 'fl_' + ballSeq, t0: t,
+        life: S.flashLife ?? 180,
+        p: [wp[0] + nrm[0] * 0.1, wp[1] + nrm[1] * 0.1, wp[2] + nrm[2] * 0.1],
+        sz0: S.flashSize ?? 2.4,
+      });
+      const nSp = Math.max(6, Math.round((S.sparkCount ?? 16)));
       for (let k = 0; k < nSp; k++) {
         const ang = Math.random() * Math.PI * 2, elev = Math.random() * Math.PI;
-        const sp = (0.4 + Math.random()) * (S.sparkSpread ?? 4);
+        const sp = (0.5 + Math.random() * 1.1) * (S.sparkSpread ?? 7);
         G.sparks.push({
           id: 'sp_' + ballSeq + '_' + k, t0: t,
-          life: (S.sparkLife ?? 380) * (0.7 + Math.random() * 0.6),
+          life: (S.sparkLife ?? 520) * (0.75 + Math.random() * 0.55),
           p: [wp[0], wp[1], wp[2]],
-          v: [Math.cos(ang) * Math.sin(elev) * sp, Math.cos(elev) * sp * 0.8 + 1.5, Math.sin(ang) * Math.sin(elev) * sp],
-          sz: 0.55 + Math.random() * 0.9,
+          v: [Math.cos(ang) * Math.sin(elev) * sp, Math.cos(elev) * sp * 0.9 + 2, Math.sin(ang) * Math.sin(elev) * sp],
+          sz: 0.7 + Math.random() * 1.2,
         });
       }
       sfx.play('hit', S);
@@ -323,6 +329,9 @@ function step(t) {
     const dt2 = dt / 1000;
     d.v[1] -= (S.gravity * 0.25) * dt2;
     d.p[0] += d.v[0] * dt2; d.p[1] += d.v[1] * dt2; d.p[2] += d.v[2] * dt2;
+  }
+  for (let i = G.flashes.length - 1; i >= 0; i--) {
+    if (t - G.flashes[i].t0 > G.flashes[i].life) G.flashes.splice(i, 1);
   }
   G.pops = G.pops.filter(p => t - p.t0 < S.popDur + 50);
 
@@ -464,15 +473,14 @@ function scene(t) {
       const yw = Math.atan2(ddx, -ddz);
       items.push({
         id, asset: 'trail', x: 0, y: 0, sx: 1, sy: 1, rot: 0, op, z,
-        w: mm, ws: 1, trailLen: Math.max(0.6, Math.min(4.2, ll * 1.0)), trailThick: thick, rx: pit, ry: yw, rz: 0,
+        w: mm, ws: 1, trailLen: Math.max(0.7, Math.min(5.0, ll * 1.02)), trailThick: thick, rx: pit, ry: yw, rz: 0,
       });
     };
-    // 球身后长半透明锥（约 65% 弹道）：尖贴球、宽在后，软晕；非整段不透明硬柱
-    if (u > 0.12) {
-      const u0 = Math.max(0.02, u - 0.65);
-      addCone(b.id + '_tr', u0, u, 0.85, 0.62, 49);
-      addCone(b.id + '_trg', u0, u, 0.4, 1.05, 48);
-      addCone(b.id + '_tr2', Math.max(u0, u - 0.28), u, 0.65, 0.4, 47);
+    // 软运动模糊针：球身后 ~55% 弹道，渐变贴图无硬边（勿过粗）
+    if (u > 0.1) {
+      const u0 = Math.max(0.02, u - 0.55);
+      addCone(b.id + '_tr', u0, u, 0.95, 0.38, 49);
+      addCone(b.id + '_trg', u0, u, 0.5, 0.65, 48);
     }
   }
 
@@ -480,16 +488,26 @@ function scene(t) {
     const u = clamp01((t - d.t0) / S.debrisLife);
     const p = Wd.proj(...d.p);
     items.push({
-      id: d.id, asset: 'debris_' + d.color, x: p[0], y: p[1], sx: 1, sy: 1, rot: u * 5, op: 1 - u * 0.85, z: 40,
-      w: d.p.slice(), ws: S.debrisSize * (1 - u * 0.35),
+      id: d.id, asset: 'debris_' + d.color, x: p[0], y: p[1], sx: 1, sy: 1, rot: u * 5, op: 1 - u * 0.75, z: 40,
+      w: d.p.slice(), ws: S.debrisSize * (1.05 - u * 0.3),
     });
   }
   for (const d of G.sparks) {
     const u = clamp01((t - d.t0) / d.life);
     const p = Wd.proj(...d.p);
     items.push({
-      id: d.id, asset: 'spark', x: p[0], y: p[1], sx: 1, sy: 1, rot: 0, op: (1 - u) * 0.85, z: 45,
-      w: d.p.slice(), ws: d.sz * (1 - u * 0.5),
+      id: d.id, asset: 'spark', x: p[0], y: p[1], sx: 1, sy: 1, rot: 0, op: (1 - u) * 0.95, z: 45,
+      w: d.p.slice(), ws: d.sz * (1.1 - u * 0.4),
+    });
+  }
+  for (const f of G.flashes) {
+    const u = clamp01((t - f.t0) / f.life);
+    const grow = 0.55 + u * 1.6;
+    const p = Wd.proj(...f.p);
+    items.push({
+      id: f.id, asset: 'flash', x: p[0], y: p[1], sx: 1, sy: 1, rot: 0,
+      op: (1 - u) * (1 - u) * 1.0, z: 46,
+      w: f.p.slice(), ws: f.sz0 * grow,
     });
   }
   return items;
