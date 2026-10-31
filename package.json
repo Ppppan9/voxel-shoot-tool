@@ -1,6 +1,6 @@
 {
   "name": "voxel-shoot-tool",
-  "version": "1.4.1",
+  "version": "1.4.2",
   "description": "体素射击核玩工具（单文件离线版）",
   "type": "module",
   "scripts": {
@@ -10,7 +10,9 @@
     "test:ae": "node test/ae-export.mjs",
     "test:h5": "node test/h5-export.mjs",
     "test:play": "node test/play.mjs",
-    "shots": "node test/shots.mjs"
+    "shots": "node test/shots.mjs",
+    "test:vis": "node test/visibility-test.mjs && node test/visibility-recall.mjs",
+    "test:vis-browser": "node test/vis-browser.mjs"
   },
   "repository": {
     "type": "git",

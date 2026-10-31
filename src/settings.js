@@ -4,7 +4,7 @@ import { PRESET_ORDER } from './level.js';
 export const SETTINGS_VERSION = 16;
 export const STORE_KEY = 'voxelShootTool.settings';
 export const APP_ID = 'voxel-shoot-tool';
-export const APP_VERSION = '1.4.1';
+export const APP_VERSION = '1.4.2';
 
 const levelOpts = [
   ...PRESET_ORDER.map(id => [id, ({

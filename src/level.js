@@ -260,7 +260,7 @@ export function removeVoxel(L, st, n) {
   }
   return true;
 }
-export function pickTarget(L, st, c, wx, wy, wz, worldOf) {
+export function pickTarget(L, st, c, wx, wy, wz, worldOf, ok) {
   // 优先同色；其次白色笼肋（广告中白肋可被任意色打掉）
   const white = L.palette.indexOf('white');
   const pools = [st.exp[c]];
@@ -270,6 +270,7 @@ export function pickTarget(L, st, c, wx, wy, wz, worldOf) {
     let localBest = -1, localBd = 1e18;
     for (const m of pool) {
       if (!isShootable(L, st, m)) continue;
+      if (ok && !ok(m)) continue;
       const p = worldOf(m);
       const d = (p[0] - wx) ** 2 + (p[1] - wy) ** 2 * 0.45 + (p[2] - wz) ** 2;
       if (d < localBd) { localBd = d; localBest = m; }
@@ -410,4 +411,49 @@ export function simulate(L, o = {}) {
     }
   }
   return { ok: st.total === 0, taps, shots };
+}
+
+// ── 可见性：只消除面朝镜头且未被遮挡的体素（v1.4.2）──
+// cam: 相机在体素网格索引空间的位置 [ci, cj, ck]（连续坐标，体素 n 中心 = 整数 i,j,k）
+const DIRS6 = [[1, 0, 0], [-1, 0, 0], [0, 1, 0], [0, -1, 0], [0, 0, 1], [0, 0, -1]];
+// 精确体素 DDA（Amanatides–Woo）：从 o 沿 d 前进，返回首个占用体素索引（跳过 skip），无则 -1
+function ddaFirst(L, vox, o, d, skip) {
+  let x = Math.round(o[0]), y = Math.round(o[1]), z = Math.round(o[2]);
+  const sx = Math.sign(d[0]), sy = Math.sign(d[1]), sz = Math.sign(d[2]);
+  const nx = (p, c, s, v) => s > 0 ? (c + 0.5 - p) / v : s < 0 ? (c - 0.5 - p) / v : Infinity;
+  let tx = nx(o[0], x, sx, d[0]), ty = nx(o[1], y, sy, d[1]), tz = nx(o[2], z, sz, d[2]);
+  const dx = sx ? Math.abs(1 / d[0]) : Infinity, dy = sy ? Math.abs(1 / d[1]) : Infinity, dz = sz ? Math.abs(1 / d[2]) : Infinity;
+  for (let it = 0; it < (L.W + L.H + L.D) * 3; it++) {
+    const inb = x >= 0 && y >= 0 && z >= 0 && x < L.W && y < L.H && z < L.D;
+    if (inb) { const n = idx(L, x, y, z); if (n !== skip && vox[n]) return n; }
+    else if ((x < 0 && sx <= 0) || (y < 0 && sy <= 0) || (z < 0 && sz <= 0) || (x >= L.W && sx >= 0) || (y >= L.H && sy >= 0) || (z >= L.D && sz >= 0)) return -1;
+    if (tx < ty && tx < tz) { x += sx; tx += dx; } else if (ty < tz) { y += sy; ty += dy; } else { z += sz; tz += dz; }
+  }
+  return -1;
+}
+const FACE_SAMPLES = [[0, 0], [0.38, 0.38], [-0.38, 0.38], [0.38, -0.38], [-0.38, -0.38]];
+/** 返回体素 n 一个「朝相机且至少一处采样点视线无遮挡」的外露面法线 [a,b,c]（索引空间），否则 null */
+export function visibleFace(L, vox, n, cam) {
+  if (!vox[n]) return null;
+  const [i, j, k] = coords(L, n);
+  let best = null, bestDot = 0;
+  for (const [a, b, c] of DIRS6) {
+    const x = i + a, y = j + b, z = k + c;
+    if (!(x < 0 || y < 0 || z < 0 || x >= L.W || y >= L.H || z >= L.D) && vox[idx(L, x, y, z)]) continue; // 面被邻块盖住
+    // 面内两个切向轴
+    const u = a ? [0, 1, 0] : [1, 0, 0], v = c ? [0, 1, 0] : (b ? [0, 0, 1] : [0, 0, 1]);
+    for (const [su, sv] of FACE_SAMPLES) {
+      const fx = i + a * 0.5 + u[0] * su + v[0] * sv, fy = j + b * 0.5 + u[1] * su + v[1] * sv, fz = k + c * 0.5 + u[2] * su + v[2] * sv;
+      let dx = cam[0] - fx, dy = cam[1] - fy, dz = cam[2] - fz;
+      const dl = Math.hypot(dx, dy, dz) || 1; dx /= dl; dy /= dl; dz /= dl;
+      const dot = dx * a + dy * b + dz * c;
+      if (dot <= 0.02) break; // 背向/掠射面
+      const o = [fx + a * 0.001, fy + b * 0.001, fz + c * 0.001];
+      if (ddaFirst(L, vox, o, [dx, dy, dz], n) < 0) { if (dot > bestDot) { bestDot = dot; best = [a, b, c]; } break; }
+    }
+  }
+  return best;
+}
+export function isVisibleShootable(L, st, m, cam) {
+  return isShootable(L, st, m) && !!visibleFace(L, st.vox, m, cam);
 }

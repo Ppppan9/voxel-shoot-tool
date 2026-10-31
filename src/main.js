@@ -5,7 +5,7 @@ import { createWorld, DW, DH, SH } from './world.js';
 import * as THREE from 'three';
 import { create3D, makeShooter, geos, colorHex } from './three/scene3d.js';
 import {
-  makeLevel, PRESETS, PRESET_ORDER, initState, removeVoxel, pickTarget, isShootable,
+  makeLevel, PRESETS, PRESET_ORDER, initState, removeVoxel, pickTarget, isShootable, visibleFace,
   coords, idx, SLOTS, shapeSphereCage, simulate,
 } from './level.js';
 import { createAERecorder } from './ae/recorder.js';
@@ -132,9 +132,40 @@ function rotatePoint(p, rotY) {
   return [p[0] * c - p[2] * s, p[1], p[0] * s + p[2] * c];
 }
 
+function curTilt() {
+  return S.level === 'watermelon' ? (S.melonTiltX ?? 1.12)
+    : S.level === 'sphere_cage' ? (S.targetTiltX || 0.88)
+    : (S.targetTiltX || 0.28);
+}
+// 与渲染 targetPivot 完全一致：pos(0,targetY,0) · Euler(tilt, rotY, 0)
+const _pivM = new THREE.Matrix4(), _pivInv = new THREE.Matrix4(), _pivQ = new THREE.Quaternion(), _pivE = new THREE.Euler(), _V = new THREE.Vector3(), _PIVP = new THREE.Vector3(), _ONE = new THREE.Vector3(1, 1, 1);
+function pivotMat(rotY) {
+  _pivE.set(curTilt(), rotY, 0); _pivQ.setFromEuler(_pivE);
+  _pivM.compose(_PIVP.set(0, Wd.targetY, 0), _pivQ, _ONE); return _pivM;
+}
 function worldOfVox(n, rotY) {
   const p = Wd.vox(n);
-  return rotatePoint(p, rotY);
+  const M = pivotMat(rotY);
+  _V.set(p[0], p[1] - Wd.targetY, p[2]).applyMatrix4(M);
+  return [_V.x, _V.y, _V.z];
+}
+/** 相机在体素索引空间的位置（随目标旋转变化） */
+let _camGridKey = null, _camGrid = null;
+function camGrid(rotY) {
+  const key = rotY.toFixed(4) + '|' + curTilt();
+  if (key === _camGridKey) return _camGrid;
+  _pivInv.copy(pivotMat(rotY)).invert();
+  const c = Wd.cam.position.clone().applyMatrix4(_pivInv); // pivot 局部
+  const vs = Wd.vs;
+  _camGrid = [c.x / vs + (L.W - 1) / 2, c.y / vs + (L.H - 1) / 2, -c.z / vs + (L.D - 1) / 2];
+  _camGridKey = key; return _camGrid;
+}
+const visOk = (m, rotY) => !!visibleFace(L, st.vox, m, camGrid(rotY));
+/** 索引空间法线 → 世界法线 */
+function faceWorldNormal(f, rotY) {
+  _pivQ.setFromEuler(_pivE.set(curTilt(), rotY, 0));
+  const v = new THREE.Vector3(f[0], f[1], -f[2]).applyQuaternion(_pivQ);
+  return [v.x, v.y, v.z];
 }
 
 function sphereHitsVox(p, r, skip, rotY) {
@@ -203,15 +234,16 @@ function tapAt(x, y) {
 }
 
 function pickTargetLOS(sh, muz, rotY) {
-  const m = pickTarget(L, st, sh.color, muz[0], muz[1], muz[2], n => worldOfVox(n, rotY));
+  // 仅镜头可见面（朝相机 + 无遮挡）；背面/隐藏体素等旋转露出后再打
+  const m = pickTarget(L, st, sh.color, muz[0], muz[1], muz[2], n => worldOfVox(n, rotY), n => visOk(n, rotY));
   if (m < 0) return null;
+  const face = visibleFace(L, st.vox, m, camGrid(rotY));
+  if (!face) return null;
   const p1 = worldOfVox(m, rotY);
-  // 瞄准外表面法线近似：从球心指向外
-  const nrm = [p1[0], p1[1] - Wd.targetY, p1[2]];
-  const nl = Math.hypot(...nrm) || 1;
-  nrm[0] /= nl; nrm[1] /= nl; nrm[2] /= nl;
-  const hit = [p1[0] + nrm[0] * Wd.vs * 0.4, p1[1] + nrm[1] * Wd.vs * 0.4, p1[2] + nrm[2] * Wd.vs * 0.4];
-  return { m, p: hit, nrm, path: ballPath(muz, hit, S.ballArc) };
+  const nrm = faceWorldNormal(face, rotY);
+  const hit = [p1[0] + nrm[0] * Wd.vs * 0.5, p1[1] + nrm[1] * Wd.vs * 0.5, p1[2] + nrm[2] * Wd.vs * 0.5];
+  if (window.__hitLog) window.__hitLog.push({ m, face, nrm, camGrid: camGrid(rotY).slice(), rotY });
+  return { m, p: hit, nrm, face, path: ballPath(muz, hit, S.ballArc) };
 }
 
 function step(t) {
@@ -234,10 +266,12 @@ function step(t) {
     if (!sh || sh.state !== 'slot' || sh.left <= 0) continue;
     if (!(S.fireRate > 0)) continue;
     if (t < sh.fireNext) continue;
-    let can = false;
-    for (const m of st.exp[sh.color]) if (isShootable(L, st, m)) { can = true; break; }
+    let can = false, ownExposed = false;
+    for (const m of st.exp[sh.color]) if (isShootable(L, st, m)) { ownExposed = true; if (visOk(m, G.rotY)) { can = true; break; } }
+    // 本色只在背面 → 等旋转露出（不挪用弹药打白肋，保证弹药账平衡）
+    if (!can && ownExposed) continue;
     const white = L.palette.indexOf('white');
-    if (!can && white >= 0) { for (const m of st.exp[white]) if (isShootable(L, st, m)) { can = true; break; } }
+    if (!can && white >= 0) { for (const m of st.exp[white]) if (isShootable(L, st, m) && visOk(m, G.rotY)) { can = true; break; } }
     if (!can) continue;
     const sw = slotAnchor(sh.si, t, sh);
     const muz = [sw.x, sw.y + 0.45, sw.z - 0.2]; // 块顶面中心出膛 // tip 前方偏上，出膛不挡顶面数字
@@ -903,7 +937,7 @@ if (!__h5) bindEditorDevicePreview(() => S);
 
 window.__game = {
   renderAt: t => { window.__vclock = t; step(t); updPress(t); draw(t); if (aeActive()) aeRec.sample(t); },
-  get items() { return draw.items || []; }, get world() { return Wd; }, get G() { return G; },
+  get items() { return draw.items || []; }, camGrid: r => camGrid(r), worldOfVox: (n, r) => worldOfVox(n, r), visibleFace, get world() { return Wd; }, get G() { return G; },
   create3D, autoSolve, newGame, tapAt, tapInv, hitInv,
   scene: () => scene(now()), voxGroups: () => voxGroups(now()),
   doExportAE, doExport3D, doExportH5, aeRec,
