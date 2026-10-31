@@ -357,9 +357,10 @@ export function makeLevel(shapeId, o = {}) {
   const grid = layoutGrid(inv.length, vol.gridPref || o);
   // 开局预填：可用 startAmmo 指定每槽弹药（null=空），否则 startSlots 个
   const pre = [];
-  if (vol.startAmmo) {
+  const startSlots = o.startSlots ?? 0; // v1.4.3：默认开局发射区为空
+  if (vol.startAmmo && startSlots > 0) {
     vol.startAmmo.forEach((spec, i) => {
-      if (spec == null || i >= SLOTS) return;
+      if (spec == null || i >= Math.min(SLOTS, startSlots)) return;
       const ammo = typeof spec === 'object' ? spec.ammo : spec;
       const want = typeof spec === 'object' ? spec.name : null;
       let bi = want ? inv.findIndex(b => b.name === want) : -1;
@@ -372,8 +373,7 @@ export function makeLevel(shapeId, o = {}) {
       b.ammo -= take;
       if (b.ammo <= 0) inv.splice(bi, 1);
     });
-  } else {
-    const startSlots = o.startSlots ?? 2;
+  } else if (!vol.startAmmo) {
     for (let i = 0; i < Math.min(startSlots, SLOTS) && inv.length; i++) pre.push(inv.shift());
   }
   // 裁切可见库存到 grid 容量（其余仍可滚动？广告只显示一屏——保留全部但布局按 pref）

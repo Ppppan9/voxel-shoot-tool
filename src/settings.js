@@ -1,10 +1,10 @@
 import { DEFAULT_HAND } from './default_hand.js';
 import { h5DeviceSelectOptions } from './h5/index.js';
 import { PRESET_ORDER } from './level.js';
-export const SETTINGS_VERSION = 16;
+export const SETTINGS_VERSION = 17;
 export const STORE_KEY = 'voxelShootTool.settings';
 export const APP_ID = 'voxel-shoot-tool';
-export const APP_VERSION = '1.4.2';
+export const APP_VERSION = '1.4.3';
 
 const levelOpts = [
   ...PRESET_ORDER.map(id => [id, ({
@@ -22,7 +22,7 @@ export const GROUPS = [
     ['seed', '随机种子', 'range', 1, 1, 9999, 1],
     ['maxAmmo', '单块最多弹药', 'range', 88, 10, 200, 1],
     ['ammoStep', '弹药取整步长', 'range', 5, 1, 20, 1],
-    ['startSlots', '开局预填槽位数', 'range', 2, 0, 5, 1],
+    ['startSlots', '开局预填槽位数', 'range', 0, 0, 5, 1],
     ['voxScale', '体素整体缩放', 'range', 0.46, 0.3, 1.8, 0.01],
     ['targetRotSpeed', '目标旋转速度(°/秒)', 'range', 10, 0, 90, 1],
     ['targetTiltX', '目标俯仰(弧度)', 'range', 0.88, -0.6, 1.2, 0.01],
@@ -86,23 +86,23 @@ export const GROUPS = [
   ]],
   ['玩法与动画', [
     ['fireRate', '射速(发/秒)', 'range', 18, 1, 40, 0.5],
-    ['ballSpeed', '球速(格/秒)', 'range', 22, 5, 120, 1],
-    ['ballArc', '球弧线高度', 'range', 1.8, 0, 8, 0.1],
+    ['ballSpeed', '球速(格/秒)', 'range', 30, 5, 120, 1],
+    ['ballArc', '球弧线高度', 'range', 0.4, 0, 8, 0.1],
     ['gravity', '碎屑重力', 'range', 28, 0, 80, 1],
     ['flyDur', '库存飞入槽位(ms)', 'range', 100, 80, 1200, 10],
     ['flyArc', '飞入弧高', 'range', 0.4, 0, 8, 0.1],
     ['leaveDur', '弹药打光离场(ms)', 'range', 180, 50, 1500, 10],
     ['popDur', '方块消除(ms)', 'range', 200, 0, 800, 10],
     ['jellyPop', '果冻挤压强度', 'range', 1.15, 0, 2, 0.05],
-    ['debrisCount', '碎屑数', 'range', 40, 0, 40, 1],
-    ['debrisLife', '碎屑寿命(ms)', 'range', 700, 100, 2500, 50],
-    ['debrisSize', '碎屑尺寸', 'range', 0.14, 0.05, 0.8, 0.01],
-    ['debrisSpread', '碎屑飞散', 'range', 3.2, 0.2, 4.5, 0.05],
-    ['sparkCount', '命中白雾数', 'range', 14, 0, 32, 1],
-    ['sparkLife', '白雾寿命(ms)', 'range', 260, 80, 1400, 10],
-    ['sparkSpread', '白雾飞散', 'range', 5.5, 0.5, 16, 0.1],
+    ['debrisCount', '碎屑数', 'range', 16, 0, 40, 1],
+    ['debrisLife', '碎屑寿命(ms)', 'range', 500, 100, 2500, 50],
+    ['debrisSize', '碎屑尺寸', 'range', 0.12, 0.05, 0.8, 0.01],
+    ['debrisSpread', '碎屑飞散', 'range', 2.0, 0.2, 4.5, 0.05],
+    ['sparkCount', '命中白雾数', 'range', 5, 0, 32, 1],
+    ['sparkLife', '白雾寿命(ms)', 'range', 180, 80, 1400, 10],
+    ['sparkSpread', '白雾飞散', 'range', 3, 0.5, 16, 0.1],
     ['flashLife', '命中闪光(ms)', 'range', 80, 60, 600, 10],
-    ['flashSize', '命中闪光尺寸', 'range', 0.5, 0.5, 6, 0.1],
+    ['flashSize', '命中闪光尺寸', 'range', 0, 0, 6, 0.1],
     ['bobAmp', '炮台呼吸幅度', 'range', 0.06, 0, 0.4, 0.01],
     ['bobPeriod', '呼吸周期(ms)', 'range', 600, 200, 2000, 10],
     ['recoil', '射击后坐', 'range', 0.24, 0, 0.6, 0.01],
@@ -257,6 +257,10 @@ export function migrate(obj) {
     14: {
       ballR: 0.15, ballGlow: 1.25, ballHalo: 1.65, ballHaloOp: 0.22, debrisCount: 26, debrisSize: 0.28,
       sparkCount: 18, sparkSpread: 7.5, flashLife: 200, flashSize: 2.8,
+    },
+    17: {
+      startSlots: 2, ballSpeed: 22, ballArc: 1.8, debrisCount: 40, debrisLife: 700, debrisSize: 0.14, debrisSpread: 3.2,
+      sparkCount: 14, sparkLife: 260, sparkSpread: 5.5, flashSize: 0.5,
     },
     16: {
       leaveDur: 280, debrisCount: 36, debrisLife: 900, debrisSize: 0.2, debrisSpread: 2.5,

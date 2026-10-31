@@ -327,7 +327,7 @@ function step(t) {
           sz0: Math.min(0.55, S.flashSize ?? 0.5),
         });
       }
-      const nSp = Math.max(8, Math.round((S.sparkCount ?? 14)));
+      const nSp = Math.max(0, Math.round((S.sparkCount ?? 5)));
       for (let k = 0; k < nSp; k++) {
         const ang = Math.random() * Math.PI * 2, elev = (Math.random() - 0.2) * 1.1;
         const sp = (0.8 + Math.random() * 1.4) * (S.sparkSpread ?? 5.5);
@@ -533,16 +533,16 @@ function scene(t) {
     };
     // 广告彗星拖尾：紧贴球身后短尾（约 8% 弹道 / 世界长 ~0.45–0.9），绝非炮口到目标竖线
     if (u > 0.06) {
-      const span = 0.07; // 广告短软彗星
+      const span = 0.05; // 广告短淡彗星
       const u0 = Math.max(0.02, u - span);
       const pa = b.path(u0), pb = b.pos;
       const ll = Math.hypot(pb[0]-pa[0], pb[1]-pa[1], pb[2]-pa[2]) || 0.01;
-      const worldLen = Math.max(0.4, Math.min(0.85, ll * 0.85));
-      addCone(b.id + '_tr', u0, u, 0.95, 0.7, 49);
+      const worldLen = Math.max(0.3, Math.min(0.6, ll * 0.8));
+      addCone(b.id + '_tr', u0, u, 0.7, 0.6, 49);
       const last = items[items.length - 1];
       if (last && last.id === b.id + '_tr') last.trailLen = worldLen;
       // soft outer glow only, slightly longer
-      addCone(b.id + '_trg', u0, u, 0.35, 1.2, 48);
+      addCone(b.id + '_trg', u0, u, 0.2, 1.0, 48);
       const last2 = items[items.length - 1];
       if (last2 && last2.id === b.id + '_trg') last2.trailLen = worldLen * 1.15;
     }
@@ -565,7 +565,7 @@ function scene(t) {
     const yw = Math.atan2(v[0], -v[2]);
     items.push({
       id: d.id, asset: 'trail', x: p[0], y: p[1], sx: 1, sy: 1, rot: 0, op: (1 - u) * 0.85, z: 45,
-      w: d.p.slice(), ws: 1, trailLen: (0.7 + sp * 0.09) * (1 - u * 0.45), trailThick: 0.18 * d.sz, rx: pit, ry: yw, rz: 0,
+      w: d.p.slice(), ws: 1, trailLen: (0.35 + sp * 0.05) * (1 - u * 0.5), trailThick: 0.14 * d.sz, rx: pit, ry: yw, rz: 0,
     });
   }
   for (const f of G.flashes) {
