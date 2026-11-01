@@ -9,7 +9,7 @@ export const PALETTE = {
   white: '#F5F7FA', cyan: '#22D3EE', brown: '#8B5A2B', tan: '#E0B07A', cream: '#FFE8C8',
 };
 export const colorHex = (S, n) => S['col_' + n] || PALETTE[n] || '#888888';
-const IS3D_RE = /^(shooter|cannon|ball|spark|flash|debris|slot|inv|trail|num)/;
+const IS3D_RE = /^(shooter|cannon|ball|spark|flash|debris|slot|inv|trail|dtrail|num)/;
 export const IS3D = a => IS3D_RE.test(a || '');
 
 let shared = null;
@@ -176,76 +176,48 @@ export function makeInvBlock(S, color) {
 }
 
 export function makeBall(S) {
+  // v1.4.4 广告实测：纯白小球 ~15px（720 宽），下半略灰蓝阴影，无光晕/外圈
   const g = new THREE.Group(); g.name = 'ball';
-  const glow = S.ballGlow || 0;
-  // 广告：小白珍珠球 + 软光晕
   const coreMat = new THREE.MeshStandardMaterial({
-    color: 0xffffff, roughness: 0.05, metalness: 0.08,
-    emissive: new THREE.Color(0xffffff), emissiveIntensity: 0.45 + glow * 0.7,
+    color: 0xffffff, roughness: 0.35, metalness: 0,
+    emissive: new THREE.Color(0xffffff), emissiveIntensity: 0.55 + (S.ballGlow || 0) * 0.2,
   }); coreMat.name = 'mat_ball';
   const core = new THREE.Mesh(geos(S).ball, coreMat); core.name = 'ball_core'; g.add(core);
-  const rim = new THREE.Mesh(geos(S).ball, new THREE.MeshBasicMaterial({
-    color: 0xffffff, transparent: true, opacity: 0.5, depthWrite: false, blending: THREE.AdditiveBlending,
-  }));
-  rim.scale.setScalar(1.18); rim.renderOrder = 1; g.add(rim);
-  if (S.ballHalo > 1 && S.ballHaloOp > 0) {
-    const halo = new THREE.Mesh(geos(S).ball, new THREE.MeshBasicMaterial({
-      color: 0xfff8ff, transparent: true, opacity: S.ballHaloOp, depthWrite: false, blending: THREE.AdditiveBlending,
-    }));
-    halo.scale.setScalar(S.ballHalo); g.add(halo);
-  }
   return g;
 }
 
-// 软运动模糊拖尾：锥形圆柱 + 径向/轴向 alpha 贴图（无硬边、任意角度可见）
-let _trailTex = null;
-function trailTexture() {
-  if (_trailTex) return _trailTex;
-  const W = 64, H = 128;
-  const c = document.createElement('canvas'); c.width = W; c.height = H;
-  const g = c.getContext('2d');
-  const img = g.createImageData(W, H);
-  for (let y = 0; y < H; y++) {
-    const v = y / (H - 1); // 0=尖(球) … 1=宽(后)
-    const along = Math.pow(Math.sin(Math.PI * Math.min(1, v * 1.08)), 0.7) * (1 - Math.pow(v, 1.45) * 0.5);
-    for (let x = 0; x < W; x++) {
-      // u around cylinder: 0..1 → treat as distance from silhouette center via cos
-      const ang = (x / W) * Math.PI * 2;
-      // soft limb darkening: brighter facing camera approx via |sin| falloff on edge
-      const edge = Math.pow(Math.abs(Math.sin(ang)), 0.35);
-      const radial = Math.exp(-Math.pow(1 - edge, 2) * 1.8) * 0.35 + edge * 0.65;
-      const a = Math.max(0, Math.min(1, along * radial * 0.95));
-      const i = (y * W + x) * 4;
-      img.data[i] = 255; img.data[i + 1] = 255; img.data[i + 2] = 255;
-      img.data[i + 3] = Math.round(a * 220);
-    }
+// v1.4.4 拖尾（全新）：广告为半透明白色"管状残影"，与球同宽、尾部收窄到 ~35%，
+// 不透明度沿长度线性 0.75→0（球端→尾端），普通混合（非叠加发光）。
+let _tubeGeo = null, _tubeTex = null;
+function tubeGeo() {
+  if (_tubeGeo) return _tubeGeo;
+  // 顶部 (y=+0.5, 球端) 半径 1，底部 (尾端) 0.35
+  _tubeGeo = new THREE.CylinderGeometry(1, 0.35, 1, 18, 8, true);
+  return _tubeGeo;
+}
+function tubeTex() {
+  if (_tubeTex) return _tubeTex;
+  const c = document.createElement('canvas'); c.width = 4; c.height = 64;
+  const g = c.getContext('2d'); const img = g.createImageData(4, 64);
+  for (let y = 0; y < 64; y++) {
+    const v = y / 63; // canvas 顶 = uv.v 1 = 圆柱顶 = 球端
+    const a = Math.max(0, 1 - v); // 线性淡出到尾
+    for (let x = 0; x < 4; x++) { const i = (y * 4 + x) * 4; img.data[i] = img.data[i + 1] = img.data[i + 2] = 255; img.data[i + 3] = Math.round(a * 255); }
   }
   g.putImageData(img, 0, 0);
-  _trailTex = new THREE.CanvasTexture(c);
-  _trailTex.colorSpace = THREE.SRGBColorSpace;
-  _trailTex.needsUpdate = true;
-  return _trailTex;
+  _tubeTex = new THREE.CanvasTexture(c); _tubeTex.needsUpdate = true;
+  return _tubeTex;
 }
-export function makeTrail(S) {
+export function makeTrail(S, color = 0xeef3ff) {
   const g = new THREE.Group(); g.name = 'trail';
-  const tex = trailTexture();
-  const mk = (rt, rb, op, name) => {
-    const m = new THREE.Mesh(
-      new THREE.CylinderGeometry(rt, rb, 1, 16, 1, true),
-      new THREE.MeshBasicMaterial({
-        map: tex, color: 0xffffff, transparent: true, opacity: op, depthWrite: false,
-        blending: THREE.AdditiveBlending, side: THREE.DoubleSide,
-      })
-    );
-    m.name = name; return m;
-  };
-  // 尖(+Y球) ← 宽(-Y后)：细软锥 + 外晕
-  g.add(mk(0.002, 0.028, 0.78, 'trail_core'));
-  g.add(mk(0.005, 0.048, 0.3, 'trail_mid'));
-  g.add(mk(0.01, 0.07, 0.12, 'trail_glow'));
+  const m = new THREE.Mesh(tubeGeo(), new THREE.MeshBasicMaterial({
+    color, map: tubeTex(), transparent: true, opacity: 0.75, depthWrite: false,
+  }));
+  m.name = 'trail_tube'; g.add(m);
   return g;
 }
 
+const _UP = new THREE.Vector3(0, 1, 0), _td = new THREE.Vector3(), _tq = new THREE.Quaternion();
 export function create3D(opt = {}) {
   let renderer = null, scene, camera, sun, hemi, Wd, S0, L0, voxMesh, targetPivot;
   const pool = new Map(); const statics = new THREE.Group();
@@ -299,6 +271,7 @@ export function create3D(opt = {}) {
       else if (k.startsWith('inv_')) obj = makeInvBlock(S0, k.slice(4));
       else if (k === 'ball' || k === 'spark' || k === 'flash') obj = makeBall(S0);
       else if (k === 'trail') obj = makeTrail(S0);
+      else if (k.startsWith('dtrail_')) obj = makeTrail(S0, colorHex(S0, k.slice(7)));
       else if (k.startsWith('debris_')) { obj = new THREE.Mesh(geos(S0).debris, mat(S0, colorHex(S0, k.slice(7)), { name: 'mat_debris_' + k.slice(7) })); obj.name = 'debris'; }
       else return null;
       o = { obj, asset: k, used: false }; pool.set(it.id, o); scene.add(obj);
@@ -328,30 +301,14 @@ export function create3D(opt = {}) {
       if (ob.userData.upper) ob.userData.upper.rotation.y = it.turretYaw ?? it.bodyYaw ?? 0;
       const s = it.ws ?? 1;
       if (it.asset === 'ball' || it.asset === 'spark' || it.asset === 'flash') {
-        const mul = it.asset === 'flash' ? (S.ballR * 2.4) : it.asset === 'spark' ? (S.ballR * 0.7) : S.ballR;
-        ob.scale.setScalar(mul * s);
-        const bop = it.op ?? 1;
-        ob.traverse(ch => {
-          if (!ch.material) return;
-          if (ch.userData._bop == null && ch.material.opacity != null) ch.userData._bop = ch.material.opacity;
-          if (ch.material.transparent && ch.userData._bop != null) ch.material.opacity = ch.userData._bop * bop;
-          if (ch.material.emissiveIntensity != null) ch.material.emissiveIntensity = (it.asset === 'flash' ? 2.2 : 0.8) * bop;
-        });
+        ob.scale.setScalar(S.ballR * s);
+        ob.traverse(ch => { if (ch.material) { ch.material.transparent = (it.op ?? 1) < 0.999; ch.material.opacity = it.op ?? 1; } });
       }
-      else if (it.asset === 'trail') {
-        const len = it.trailLen || 1.8;
-        const thick = (it.trailThick ?? 0.55) * s;
-        // PlaneGeometry 默认 XY；厚=X，长=Y，Z 忽略
-        ob.scale.set(thick, len, thick);
-        if (it.rx != null || it.ry != null) ob.rotation.set(it.rx || 0, it.ry || 0, it.rz || 0);
-        else if (it.trailQuat) ob.quaternion.copy(it.trailQuat);
-        const op = it.op ?? 0.75;
-        ob.traverse(ch => {
-          if (ch.material && ch.material.transparent) {
-            const base = ch.name === 'trail_core' ? 0.7 : ch.name === 'trail_mid' ? 0.32 : ch.name === 'trail_glow' ? 0.14 : 0.35;
-            ch.material.opacity = base * op;
-          }
-        });
+      else if (it.asset === 'trail' || it.asset.startsWith('dtrail_')) {
+        // it.w = 中点；it.dir = 单位方向（尾→头）；it.trailLen 世界长；it.trailR 头端半径
+        ob.scale.set(it.trailR, it.trailLen, it.trailR);
+        if (it.dir) { _tq.setFromUnitVectors(_UP, _td.set(it.dir[0], it.dir[1], it.dir[2])); ob.quaternion.copy(_tq); }
+        ob.traverse(ch => { if (ch.material) ch.material.opacity = 0.75 * (it.op ?? 1); });
       }
       else if (it.asset.startsWith('debris')) ob.scale.setScalar(s);
       else if (it.asset.startsWith('inv_')) ob.scale.setScalar(s * (it.faceCam ? 1 : (S.invScale || 1.35)));

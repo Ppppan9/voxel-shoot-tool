@@ -1,6 +1,6 @@
 {
   "name": "voxel-shoot-tool",
-  "version": "1.4.3",
+  "version": "1.4.4",
   "description": "体素射击核玩工具（单文件离线版）",
   "type": "module",
   "scripts": {

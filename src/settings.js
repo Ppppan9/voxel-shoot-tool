@@ -1,10 +1,10 @@
 import { DEFAULT_HAND } from './default_hand.js';
 import { h5DeviceSelectOptions } from './h5/index.js';
 import { PRESET_ORDER } from './level.js';
-export const SETTINGS_VERSION = 17;
+export const SETTINGS_VERSION = 18;
 export const STORE_KEY = 'voxelShootTool.settings';
 export const APP_ID = 'voxel-shoot-tool';
-export const APP_VERSION = '1.4.3';
+export const APP_VERSION = '1.4.4';
 
 const levelOpts = [
   ...PRESET_ORDER.map(id => [id, ({
@@ -52,7 +52,8 @@ export const GROUPS = [
     ['voxGap', '方块间缝(负=重叠)', 'range', -0.04, -0.08, 0.3, 0.005],
     ['voxRound', '方块圆角', 'range', 0.16, 0, 0.45, 0.01],
     ['outline3d', '卡通描边', 'range', 0.7, 0, 2, 0.05],
-    ['ballR', '小球半径', 'range', 0.07, 0.08, 0.8, 0.01],
+    ['ballPx', '小球屏幕直径px(0=按半径透视)', 'range', 15, 0, 40, 0.5],
+    ['ballR', '小球半径', 'range', 0.055, 0.02, 0.8, 0.005],
     ['ballGlow', '小球自发光', 'range', 0.55, 0, 2.5, 0.05],
     ['ballHalo', '小球光晕半径', 'range', 1.15, 1, 2.8, 0.05],
     ['ballHaloOp', '小球光晕不透明度', 'range', 0.08, 0, 0.8, 0.01],
@@ -88,17 +89,22 @@ export const GROUPS = [
     ['fireRate', '射速(发/秒)', 'range', 18, 1, 40, 0.5],
     ['ballSpeed', '球速(格/秒)', 'range', 30, 5, 120, 1],
     ['ballArc', '球弧线高度', 'range', 0.4, 0, 8, 0.1],
-    ['gravity', '碎屑重力', 'range', 28, 0, 80, 1],
+    ['gravity', '碎屑重力(体素/s²)', 'range', 12, 0, 80, 1],
     ['flyDur', '库存飞入槽位(ms)', 'range', 100, 80, 1200, 10],
     ['flyArc', '飞入弧高', 'range', 0.4, 0, 8, 0.1],
     ['leaveDur', '弹药打光离场(ms)', 'range', 180, 50, 1500, 10],
-    ['popDur', '方块消除(ms)', 'range', 200, 0, 800, 10],
+    ['popDur', '方块消除(ms)', 'range', 60, 0, 800, 10],
     ['jellyPop', '果冻挤压强度', 'range', 1.15, 0, 2, 0.05],
-    ['debrisCount', '碎屑数', 'range', 16, 0, 40, 1],
-    ['debrisLife', '碎屑寿命(ms)', 'range', 500, 100, 2500, 50],
-    ['debrisSize', '碎屑尺寸', 'range', 0.12, 0.05, 0.8, 0.01],
-    ['debrisSpread', '碎屑飞散', 'range', 2.0, 0.2, 4.5, 0.05],
-    ['sparkCount', '命中白雾数', 'range', 5, 0, 32, 1],
+    ['debrisCount', '碎屑数', 'range', 8, 0, 40, 1],
+    ['debrisLife', '碎屑寿命(ms)', 'range', 450, 100, 2500, 50],
+    ['debrisSize', '碎屑尺寸(体素)', 'range', 0.36, 0.1, 1.2, 0.01],
+    ['debrisSpread', '碎屑飞散(体素)', 'range', 2.4, 0.5, 10, 0.1],
+    ['debrisDrag', '碎屑阻尼', 'range', 3.2, 0, 10, 0.1],
+    ['debrisTrail', '碎屑残影长度(s)', 'range', 0.06, 0, 0.2, 0.005],
+    ['trailLenBalls', '拖尾长度(球径)', 'range', 4.3, 0, 12, 0.1],
+    ['trailOp', '拖尾不透明度', 'range', 1, 0, 1.3, 0.05],
+    ['trailGhostMs', '命中后残影(ms)', 'range', 70, 0, 300, 10],
+    ['sparkCount', '命中白雾数', 'range', 0, 0, 32, 1],
     ['sparkLife', '白雾寿命(ms)', 'range', 180, 80, 1400, 10],
     ['sparkSpread', '白雾飞散', 'range', 3, 0.5, 16, 0.1],
     ['flashLife', '命中闪光(ms)', 'range', 80, 60, 600, 10],
@@ -274,6 +280,7 @@ export function migrate(obj) {
       uiScale: 0.38, /* bump default 0.40 for taller multi-hump tanks */
     },
   };
+  if (v < 18) { for (const k of ['debrisSize', 'debrisSpread', 'gravity', 'debrisCount', 'debrisLife', 'popDur', 'sparkCount', 'ballR', 'flashSize']) delete s[k]; }
   for (const nv of Object.keys(OLD).map(Number).sort((a,b)=>a-b)) if (v < nv) {
     for (const k in OLD[nv]) if (s[k] === OLD[nv][k]) delete s[k];
     v = nv;

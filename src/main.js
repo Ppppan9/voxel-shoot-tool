@@ -56,7 +56,7 @@ function startLevel(Lnew) {
   G = {
     slots: new Array(SLOTS).fill(null),
     inv: L.inventory.map((b, i) => ({ ...b, left: b.ammo, gi: i, state: 'inv' })),
-    balls: [], pops: [], debris: [], sparks: [], flashes: [], flyers: [],
+    balls: [], pops: [], ghosts: [], debris: [], sparks: [], flashes: [], flyers: [],
     rotY: (S.level === 'sphere_cage' ? 1.15 : S.level === 'diamond_cage' ? 0.85 : S.level === 'house' ? 0.65 : S.level === 'watermelon' ? -0.72 : 0), t0: now(),
   };
   // 预填槽位（允许稀疏：广告开局常为左右两端有炮）
@@ -303,49 +303,34 @@ function step(t) {
       removeVoxel(L, st, b.m);
       G.pops.push({ n: b.m, t0: t, color: name, w: wp });
       const nrm = b.nrm || [0, 1, 0];
-      const nDeb = S.debrisCount | 0;
+      // v1.4.4 广告实测：每块 ~8 个同色小方块（~0.45 体素），沿受击面法线半球外溅，
+      // 寿命 ~450ms 内飞出 ~2–4 体素，轻重力、自旋；无白闪、无白色火花
+      const vs = Wd.vs, nDeb = S.debrisCount | 0, life = S.debrisLife;
       for (let k = 0; k < nDeb; k++) {
-        const ang = Math.random() * Math.PI * 2, elev = 0.1 + Math.random() * 0.85;
-        const sp = (0.9 + Math.random() * 1.2) * S.debrisSpread * 10;
+        // 半球随机方向（偏向法线）
+        let rx = Math.random() * 2 - 1, ry = Math.random() * 2 - 1, rz = Math.random() * 2 - 1;
+        const rl = Math.hypot(rx, ry, rz) || 1; rx /= rl; ry /= rl; rz /= rl;
+        let dx = nrm[0] * 1.1 + rx, dy = nrm[1] * 1.1 + ry, dz = nrm[2] * 1.1 + rz;
+        const dl = Math.hypot(dx, dy, dz) || 1;
+        const dist = S.debrisSpread * (0.55 + Math.random() * 0.9) * vs; // 终点距离（体素→世界）
+        const sp = dist / (life / 1000) * 1.6; // 初速（含减速）
         G.debris.push({
-          id: 'd_' + ballSeq + '_' + k, color: name, t0: t,
-          p: [wp[0] + nrm[0] * 0.15, wp[1] + nrm[1] * 0.15, wp[2] + nrm[2] * 0.15],
-          v: [
-            nrm[0] * sp * 0.9 + Math.cos(ang) * Math.cos(elev) * sp * 0.55,
-            nrm[1] * sp * 0.45 + Math.sin(elev) * sp * 0.85 + 4,
-            nrm[2] * sp * 0.9 + Math.sin(ang) * Math.cos(elev) * sp * 0.55,
-          ],
-        });
-      }
-      // 命中：中心亮闪光 + 白雾火花（广告 hot flash）
-      // 广告：几乎无圆白团，仅极淡瞬时闪光
-      if ((S.flashSize ?? 0) > 0.05) {
-        G.flashes.push({
-          id: 'fl_' + ballSeq, t0: t,
-          life: S.flashLife ?? 80,
-          p: [wp[0] + nrm[0] * 0.1, wp[1] + nrm[1] * 0.1, wp[2] + nrm[2] * 0.1],
-          sz0: Math.min(0.55, S.flashSize ?? 0.5),
-        });
-      }
-      const nSp = Math.max(0, Math.round((S.sparkCount ?? 5)));
-      for (let k = 0; k < nSp; k++) {
-        const ang = Math.random() * Math.PI * 2, elev = (Math.random() - 0.2) * 1.1;
-        const sp = (0.8 + Math.random() * 1.4) * (S.sparkSpread ?? 5.5);
-        // 细白射线：沿法线外喷 + 随机散布（广告 radial streaks）
-        G.sparks.push({
-          id: 'sp_' + ballSeq + '_' + k, t0: t,
-          life: (S.sparkLife ?? 260) * (0.7 + Math.random() * 0.5),
-          p: [wp[0] + nrm[0] * 0.05, wp[1] + nrm[1] * 0.05, wp[2] + nrm[2] * 0.05],
-          v: [
-            nrm[0] * sp * 0.75 + Math.cos(ang) * Math.cos(elev) * sp * 0.55,
-            nrm[1] * sp * 0.55 + Math.sin(elev) * sp * 0.7 + 1.5,
-            nrm[2] * sp * 0.75 + Math.sin(ang) * Math.cos(elev) * sp * 0.55,
-          ],
-          sz: 0.25 + Math.random() * 0.35,
+          id: 'd_' + ballSeq + '_' + k, color: name, t0: t, life: life * (0.8 + Math.random() * 0.4),
+          sz: S.debrisSize * (0.7 + Math.random() * 0.6),
+          p: [wp[0] + nrm[0] * vs * 0.3, wp[1] + nrm[1] * vs * 0.3, wp[2] + nrm[2] * vs * 0.3],
+          v: [dx / dl * sp, dy / dl * sp, dz / dl * sp],
+          r0: [Math.random() * 3, Math.random() * 3, Math.random() * 3],
+          spin: [(Math.random() - 0.5) * 9, (Math.random() - 0.5) * 9, (Math.random() - 0.5) * 9],
         });
       }
       sfx.play('hit', S);
     } else st.claimed[b.m] = 0;
+    {
+      const back = b.path(0.97), hd = b.path(1);
+      let dx = hd[0] - back[0], dy = hd[1] - back[1], dz = hd[2] - back[2]; const dl = Math.hypot(dx, dy, dz) || 1;
+      const st0 = b.path(0), fl = Math.hypot(hd[0] - st0[0], hd[1] - st0[1], hd[2] - st0[2]);
+      G.ghosts.push({ id: b.id + '_gh', t0: t, head: hd, dir: [dx / dl, dy / dl, dz / dl], len: fl });
+    }
     G.balls.splice(i, 1);
   }
 
@@ -363,9 +348,11 @@ function step(t) {
   for (let i = G.debris.length - 1; i >= 0; i--) {
     const d = G.debris[i];
     const age = t - d.t0;
-    if (age > S.debrisLife) { G.debris.splice(i, 1); continue; }
+    if (age > d.life) { G.debris.splice(i, 1); continue; }
     const dt2 = dt / 1000;
-    d.v[1] -= S.gravity * dt2;
+    const drag = Math.exp(-(S.debrisDrag ?? 3.2) * dt2);
+    d.v[0] *= drag; d.v[1] *= drag; d.v[2] *= drag;
+    d.v[1] -= S.gravity * Wd.vs * dt2;
     d.p[0] += d.v[0] * dt2; d.p[1] += d.v[1] * dt2; d.p[2] += d.v[2] * dt2;
   }
   // 白雾火花
@@ -380,6 +367,7 @@ function step(t) {
   for (let i = G.flashes.length - 1; i >= 0; i--) {
     if (t - G.flashes[i].t0 > G.flashes[i].life) G.flashes.splice(i, 1);
   }
+  G.ghosts = G.ghosts.filter(g => t - g.t0 < (S.trailGhostMs ?? 70));
   G.pops = G.pops.filter(p => t - p.t0 < S.popDur + 50);
 
   // 后坐衰减
@@ -505,78 +493,66 @@ function scene(t) {
     });
   }
 
+  // v1.4.4 球 + 拖尾（按广告逐帧实测重做）
+  const vs = Wd.vs;
+  const pushTrail = (id, asset, head, dir, len, r, op, z) => {
+    if (len < 1e-3) return;
+    const mid = [head[0] - dir[0] * len / 2, head[1] - dir[1] * len / 2, head[2] - dir[2] * len / 2];
+    items.push({ id, asset, x: 0, y: 0, sx: 1, sy: 1, rot: 0, op, z, w: mid, ws: 1, dir, trailLen: len, trailR: r });
+  };
+  const _cr = new THREE.Vector3().setFromMatrixColumn(Wd.cam.matrixWorld, 0);
+  const ballScreenWs = (pos) => {
+    if (!(S.ballPx > 0)) return 1;
+    const P = Wd.proj(...pos);
+    const Q = Wd.proj(pos[0] + _cr.x * S.ballR, pos[1] + _cr.y * S.ballR, pos[2] + _cr.z * S.ballR);
+    return S.ballPx / Math.max(1e-3, 2 * Math.hypot(Q[0] - P[0], Q[1] - P[1]));
+  };
+  const trailWorldLen = (head, dir) => {
+    const P = Wd.proj(...head);
+    const Q = Wd.proj(head[0] + _cr.x * S.ballR, head[1] + _cr.y * S.ballR, head[2] + _cr.z * S.ballR);
+    const ballPx = S.ballPx > 0 ? S.ballPx : 2 * Math.hypot(Q[0] - P[0], Q[1] - P[1]);
+    const B = Wd.proj(head[0] - dir[0] * 0.1, head[1] - dir[1] * 0.1, head[2] - dir[2] * 0.1);
+    const pxPerW = Math.max(1e-3, Math.hypot(B[0] - P[0], B[1] - P[1]) / 0.1);
+    return Math.min(6, (S.trailLenBalls ?? 4.3) * ballPx / pxPerW);
+  };
   for (const b of G.balls) {
     if (!b.pos) continue;
-    // 出膛初期不画大白球（避免盖住顶面数字）；稍远后再显示珍珠球
-    const u = Math.min(0.98, Math.max(0.04, (t - b.t0) / Math.max(1, b.dur)));
+    const u = clamp01((t - b.t0) / Math.max(1, b.dur));
     const p = Wd.proj(...b.pos);
-    // 中段画珍珠球；接近命中淡出，避免命中处圆白团
-    if (u >= 0.08 && u < 0.88) {
-      const near = Math.min(1, (u - 0.08) / 0.1);
-      const fade = u > 0.7 ? 1 - (u - 0.7) / 0.18 : 1;
-      items.push({ id: b.id, asset: 'ball', x: p[0], y: p[1], sx: 1, sy: 1, rot: 0, op: (0.7 + 0.3 * near) * fade, z: 50, w: b.pos.slice(), ws: (0.55 + 0.35 * near) * fade });
-    }
-    // 广告：球后方半透明锥形拖尾（宽端靠后/近炮口侧，尖端贴球）— 非整段硬杆
-    const addCone = (id, ua, ub, op, thick, z) => {
-      const a = Math.max(0, Math.min(0.99, ua)), bb = Math.max(0.02, Math.min(0.99, ub));
-      if (bb - a < 0.04) return;
-      const pa = b.path(a), pb = b.path(bb);
-      const ddx = pb[0] - pa[0], ddy = pb[1] - pa[1], ddz = pb[2] - pa[2];
-      const ll = Math.hypot(ddx, ddy, ddz) || 0.01;
-      const mm = [(pa[0] + pb[0]) / 2, (pa[1] + pb[1]) / 2, (pa[2] + pb[2]) / 2];
-      const pit = Math.acos(Math.max(-1, Math.min(1, ddy / ll))) - Math.PI / 2;
-      const yw = Math.atan2(ddx, -ddz);
-      items.push({
-        id, asset: 'trail', x: 0, y: 0, sx: 1, sy: 1, rot: 0, op, z,
-        w: mm, ws: 1, trailLen: Math.max(0.55, Math.min(1.35, ll * 1.0)), trailThick: thick, rx: pit, ry: yw, rz: 0,
-      });
-    };
-    // 广告彗星拖尾：紧贴球身后短尾（约 8% 弹道 / 世界长 ~0.45–0.9），绝非炮口到目标竖线
-    if (u > 0.06) {
-      const span = 0.05; // 广告短淡彗星
-      const u0 = Math.max(0.02, u - span);
-      const pa = b.path(u0), pb = b.pos;
-      const ll = Math.hypot(pb[0]-pa[0], pb[1]-pa[1], pb[2]-pa[2]) || 0.01;
-      const worldLen = Math.max(0.3, Math.min(0.6, ll * 0.8));
-      addCone(b.id + '_tr', u0, u, 0.7, 0.6, 49);
-      const last = items[items.length - 1];
-      if (last && last.id === b.id + '_tr') last.trailLen = worldLen;
-      // soft outer glow only, slightly longer
-      addCone(b.id + '_trg', u0, u, 0.2, 1.0, 48);
-      const last2 = items[items.length - 1];
-      if (last2 && last2.id === b.id + '_trg') last2.trailLen = worldLen * 1.15;
-    }
+    // 广告实测：球在整段飞行中屏幕直径恒定 ~15px（720 宽 ≈2.1%），不随远近明显缩小
+    const bws = ballScreenWs(b.pos);
+    items.push({ id: b.id, asset: 'ball', x: p[0], y: p[1], sx: 1, sy: 1, rot: 0, op: 1, z: 50, w: b.pos.slice(), ws: bws });
+    // 拖尾：沿弹道回溯 trailLenBalls 个球径（不超过已飞行距离）
+    // 广告拖尾按"屏幕长度 ≈ N 个球径"测得（球沿深度飞行会被透视压缩，故按屏幕长度换算世界长）
+    const st0 = b.path(0);
+    const flown = Math.hypot(b.pos[0] - st0[0], b.pos[1] - st0[1], b.pos[2] - st0[2]);
+    const back = b.path(Math.max(0, u - 0.02));
+    let dx = b.pos[0] - back[0], dy = b.pos[1] - back[1], dz = b.pos[2] - back[2];
+    const dl = Math.hypot(dx, dy, dz) || 1;
+    const want = trailWorldLen(b.pos, [dx / dl, dy / dl, dz / dl]);
+    const len = Math.min(want, flown);
+    pushTrail(b.id + '_tr', 'trail', b.pos, [dx / dl, dy / dl, dz / dl], len, S.ballR * bws * 0.95, S.trailOp ?? 1, 49);
+  }
+  // 命中后拖尾残影：尾端继续追到命中点后消失（广告可见无球的短残影）
+  for (const g of G.ghosts) {
+    const u = clamp01((t - g.t0) / (S.trailGhostMs ?? 70));
+    pushTrail(g.id, 'trail', g.head, g.dir, Math.min(g.len, trailWorldLen(g.head, g.dir)) * (1 - u), S.ballR * ballScreenWs(g.head) * 0.95 * (1 - u * 0.4), (S.trailOp ?? 1) * (1 - u * 0.3), 49);
   }
 
   for (const d of G.debris) {
-    const u = clamp01((t - d.t0) / S.debrisLife);
-    const p = Wd.proj(...d.p);
-    items.push({
-      id: d.id, asset: 'debris_' + d.color, x: p[0], y: p[1], sx: 1, sy: 1, rot: u * 5, op: 1 - u * 0.75, z: 40,
-      w: d.p.slice(), ws: S.debrisSize * (1.05 - u * 0.3),
-    });
-  }
-  for (const d of G.sparks) {
     const u = clamp01((t - d.t0) / d.life);
     const p = Wd.proj(...d.p);
-    // 广告：细长白色速度线（非圆白团）
-    const v = d.v, sp = Math.hypot(v[0], v[1], v[2]) || 1;
-    const pit = Math.acos(Math.max(-1, Math.min(1, v[1] / sp))) - Math.PI / 2;
-    const yw = Math.atan2(v[0], -v[2]);
+    const sz = d.sz * vs * (1 - u * 0.35);
     items.push({
-      id: d.id, asset: 'trail', x: p[0], y: p[1], sx: 1, sy: 1, rot: 0, op: (1 - u) * 0.85, z: 45,
-      w: d.p.slice(), ws: 1, trailLen: (0.35 + sp * 0.05) * (1 - u * 0.5), trailThick: 0.14 * d.sz, rx: pit, ry: yw, rz: 0,
+      id: d.id, asset: 'debris_' + d.color, x: p[0], y: p[1], sx: 1, sy: 1, rot: 0, op: 1, z: 40,
+      w: d.p.slice(), ws: sz, rx: d.r0[0] + d.spin[0] * u, ry: d.r0[1] + d.spin[1] * u, rz: d.r0[2] + d.spin[2] * u,
     });
-  }
-  for (const f of G.flashes) {
-    const u = clamp01((t - f.t0) / f.life);
-    const grow = 0.55 + u * 1.6;
-    const p = Wd.proj(...f.p);
-    items.push({
-      id: f.id, asset: 'flash', x: p[0], y: p[1], sx: 1, sy: 1, rot: 0,
-      op: (1 - u) * (1 - u) * 1.0, z: 46,
-      w: f.p.slice(), ws: f.sz0 * grow,
-    });
+    // 广告：碎块身后有同色淡残影
+    const sp = Math.hypot(d.v[0], d.v[1], d.v[2]);
+    if (sp > 1e-3 && (S.debrisTrail ?? 0.06) > 0) {
+      pushTrail(d.id + '_t', 'dtrail_' + d.color, d.p, [d.v[0] / sp, d.v[1] / sp, d.v[2] / sp],
+        Math.min(sp * (S.debrisTrail ?? 0.06), 2.5 * vs), sz * 0.45, 0.45 * (1 - u), 39);
+    }
   }
   return items;
 }
