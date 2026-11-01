@@ -233,6 +233,17 @@ function tapAt(x, y) {
   return false;
 }
 
+// v1.4.5：同色体素若外露但整整一圈旋转都无可见面（如底座底面），视为"埋底"——
+// 仍只打本色，允许打这些体素以免卡关（不会跨色）
+function pickBuried(sh, muz, rotY) {
+  const m = pickTarget(L, st, sh.color, muz[0], muz[1], muz[2], n => worldOfVox(n, rotY));
+  if (m < 0) return null;
+  const p1 = worldOfVox(m, rotY);
+  const nrm = [0, 1, 0];
+  const hit = [p1[0], p1[1] + Wd.vs * 0.5, p1[2]];
+  if (window.__buriedLog) window.__buriedLog.push(m);
+  return { m, p: hit, nrm, face: [0, 1, 0], path: ballPath(muz, hit, S.ballArc) };
+}
 function pickTargetLOS(sh, muz, rotY) {
   // 仅镜头可见面（朝相机 + 无遮挡）；背面/隐藏体素等旋转露出后再打
   const m = pickTarget(L, st, sh.color, muz[0], muz[1], muz[2], n => worldOfVox(n, rotY), n => visOk(n, rotY));
@@ -268,14 +279,20 @@ function step(t) {
     if (t < sh.fireNext) continue;
     let can = false, ownExposed = false;
     for (const m of st.exp[sh.color]) if (isShootable(L, st, m)) { ownExposed = true; if (visOk(m, G.rotY)) { can = true; break; } }
-    // 本色只在背面 → 等旋转露出（不挪用弹药打白肋，保证弹药账平衡）
-    if (!can && ownExposed) continue;
-    const white = L.palette.indexOf('white');
-    if (!can && white >= 0) { for (const m of st.exp[white]) if (isShootable(L, st, m) && visOk(m, G.rotY)) { can = true; break; } }
+    // 本色只在背面 → 等旋转露出；转满一圈仍不可见 → 视为埋底，允许打（仍严格同色）
+    let buried = false;
+    if (can || !ownExposed) sh.hidT0 = null;
+    else {
+      if (sh.hidT0 == null) sh.hidT0 = t;
+      const rot = Math.abs(S.targetRotSpeed || 0);
+      const grace = rot > 0.5 ? Math.min(15000, 360 / rot * 1000 + 300) : 3000;
+      if (t - sh.hidT0 < grace) continue;
+      buried = true;
+    }
     if (!can) continue;
     const sw = slotAnchor(sh.si, t, sh);
     const muz = [sw.x, sw.y + 0.45, sw.z - 0.2]; // 块顶面中心出膛 // tip 前方偏上，出膛不挡顶面数字
-    const tg = pickTargetLOS(sh, muz, G.rotY);
+    const tg = buried ? pickBuried(sh, muz, G.rotY) : pickTargetLOS(sh, muz, G.rotY);
     if (!tg) continue;
     st.claimed[tg.m] = 1;
     const len = Math.hypot(tg.p[0] - muz[0], tg.p[1] - muz[1], tg.p[2] - muz[2]);
@@ -298,6 +315,7 @@ function step(t) {
     if (u < 1) continue;
     if (st.vox[b.m]) {
       const col = st.vox[b.m] - 1;
+      if (window.__colorLog) window.__colorLog.push({ m: b.m, vc: col, sc: b.sh ? b.sh.color : -1 });
       const name = L.palette[col];
       const wp = worldOfVox(b.m, G.rotY);
       removeVoxel(L, st, b.m);
@@ -703,7 +721,9 @@ function nextAuto() {
   let best = null, ba = -1;
   for (const b of G.inv) {
     if (b.state !== 'inv') continue;
-    let a = 0; for (const m of st.exp[b.color]) if (isShootable(L, st, m)) a++;
+    let a = 0; for (const m of st.exp[b.color]) if (isShootable(L, st, m)) a += visOk(m, G.rotY) ? 4 : 1;
+    // 已有同色槽在打 → 降权，避免五槽同色死等
+    a /= 1 + G.slots.filter(s => s && s.color === b.color).length * 2;
     // 偏好与已有槽不同色也行，优先能打的
     if (a > ba) { ba = a; best = b; }
   }

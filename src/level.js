@@ -261,11 +261,8 @@ export function removeVoxel(L, st, n) {
   return true;
 }
 export function pickTarget(L, st, c, wx, wy, wz, worldOf, ok) {
-  // 优先同色；其次白色笼肋（广告中白肋可被任意色打掉）
-  const white = L.palette.indexOf('white');
+  // v1.4.5：严格同色——发射器只消除与自身完全同色的体素（无白肋兜底）
   const pools = [st.exp[c]];
-  if (white >= 0 && white !== c) pools.push(st.exp[white]);
-  let best = -1, bd = 1e18, prefer = true;
   for (const pool of pools) {
     let localBest = -1, localBd = 1e18;
     for (const m of pool) {
@@ -286,14 +283,9 @@ export function planInventory(L, o = {}) {
   const maxAmmo = o.maxAmmo || 88, step = o.ammoStep || 5;
   const prefer = [60, 50, 40, 65, 44, 75, 70, 48, 69, 80, 55, 88];
   const targetBlocks = o.targetBlocks || 16;
-  const whiteIdx = L.palette.indexOf('white');
-  // 白色笼肋可被任意色击破 → 弹药并入彩色块，不占库存格
+  // v1.4.5：广告库存里有白色发射器 → 白色与其他颜色一样独立成块，弹药总数=该色体素数
   const colorNeeds = [];
-  let whiteBonus = 0;
-  counts.forEach((need, c) => {
-    if (c === whiteIdx) whiteBonus += need;
-    else if (need > 0) colorNeeds.push({ c, need, name: L.palette[c] });
-  });
+  counts.forEach((need, c) => { if (need > 0) colorNeeds.push({ c, need, name: L.palette[c] }); });
   const blocks = []; let id = 0;
   for (const { c, need, name } of colorNeeds) {
     let left = need;
@@ -305,24 +297,6 @@ export function planInventory(L, o = {}) {
       if (left - ammo >= step) ammo = Math.max(step, Math.floor(ammo / step) * step);
       blocks.push({ color: c, ammo, id: id++, name });
       left -= ammo;
-    }
-  }
-  // 白色加成均摊，但单块不超过 maxAmmo；放不下则新开同色块
-  if (whiteBonus > 0 && blocks.length) {
-    let i = 0;
-    while (whiteBonus > 0) {
-      const b = blocks[i % blocks.length];
-      const room = maxAmmo - b.ammo;
-      if (room >= step) {
-        const add = Math.min(room, whiteBonus, step * (1 + (r() * 3 | 0)));
-        b.ammo += add; whiteBonus -= add;
-      } else {
-        // 开新块
-        blocks.push({ color: b.color, ammo: Math.min(maxAmmo, whiteBonus), id: id++, name: b.name });
-        whiteBonus -= Math.min(maxAmmo, whiteBonus);
-      }
-      i++;
-      if (i > 10000) break;
     }
   }
   // 合并同色且 sum≤maxAmmo，逼近 targetBlocks
@@ -369,7 +343,7 @@ export function makeLevel(shapeId, o = {}) {
       if (!inv.length) return;
       const b = inv[bi];
       const take = Math.min(b.ammo, ammo);
-      pre[i] = { color: b.color, ammo: ammo, name: b.name, id: 'pre' + i };
+      pre[i] = { color: b.color, ammo: take, name: b.name, id: 'pre' + i }; // 弹药取自库存，账目守恒
       b.ammo -= take;
       if (b.ammo <= 0) inv.splice(bi, 1);
     });
