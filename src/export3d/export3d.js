@@ -5,6 +5,7 @@
 // 2D 叠加层（背景、免责声明、通关文字、手、结束页）= 挂在相机下的贴图平面（HUD），与网页画面同位置同大小。
 import * as THREE from 'three';
 import { GLTFExporter } from 'three/examples/jsm/exporters/GLTFExporter.js';
+import { ueOptimizeExport } from './ue-optimize.js';
 import { makeZip } from '../ae/zip.js';
 import { create3D, IS3D, geos, mat, colorHex, numberTexture } from '../three/scene3d.js';
 import { itemsAt } from '../three/frames.js';
@@ -191,12 +192,16 @@ export async function export3D({ S, ae, rec, A, Wd }) {
     if (!Number.isFinite(s.x) || !Number.isFinite(s.y) || !Number.isFinite(s.z)) s.set(Number.isFinite(s.x)?s.x:1, Number.isFinite(s.y)?s.y:1, Number.isFinite(s.z)?s.z:1);
     if (![q.x, q.y, q.z, q.w].every(Number.isFinite)) q.set(0, 0, 0, 1);
   });
+  // 拖尾透明度：glTF 不支持材质透明度动画，导出统一取页面标称值 0.75（以前是最后一帧淡出时的残值，常常接近 0 看不见）；同色拖尾因此能共用一个材质
+  scn.traverse(o => { if (o.isMesh && /trail_tube$/.test(o.name) && o.material && !Array.isArray(o.material)) o.material.opacity = 0.75; });
   const clip = new THREE.AnimationClip('voxel_shoot', D, clipTracks);
   let glb = await new GLTFExporter().parseAsync(scn, { binary: true, animations: clipTracks.length ? [clip] : [], onlyVisible: false, trs: true });
 
 
   // If exporter still dropped the clip, keep a valid glb (no empty animations array) — should not happen after sanitize.
   glb = await maybeStripEmptyAnimations(glb);
+  const glb0 = glb; const UEO = ueOptimizeExport(glb0, S, { fps, opacity: opacity, nodes }); // 引擎精简导出（控制台可关）
+  glb = UEO.glb;
   const tl = ae.timeline, assetById = new Map(tl.assets.map(a => [a.id, a])), sfxC = tl.comps.find(c => c.id === 'sfx'), mixA = tl.assets.find(a => a.id === 'mix');
   const audio = []; if (sfxC) for (const l of sfxC.layers) { const a = assetById.get(l.src.asset); if (a) audio.push({ file: a.file, t: l.start || 0, name: l.name }); }
   const scene3d = {
@@ -204,7 +209,7 @@ export async function export3D({ S, ae, rec, A, Wd }) {
     units: { px: PX, note: 'voxel_root 缩放 0.1（页面 3D 场景单位 → 米）；Y 轴向上；相机与页面 3D 渲染一致（透视，拟合参考视频）' },
     camera: { name: cam.name, type: 'perspective', yfov: cam.fov, aspect: DW / DH, position: R.camera.position.toArray().map(x => r5(x * PX)), target: [S.cam3dTX, S.cam3dTY, S.cam3dTZ].map(x => r5(x * PX)), distance: r5(camD * PX), near: r5(cam.near * PX), far: r5(cam.far * PX) },
     lights: { sun: { name: sun.name, intensity: S.light3dSun, elev: S.light3dElev, azim: S.light3dAzim }, ambient: { intensity: S.light3dAmbient, sky: '#ffffff', ground: '#6a5a80' } },
-    visibility: '*_vis 节点 scale=1 显示 / 0 隐藏（STEP）；vox_* 节点消除时缩放到 0；label 下 *_num_<n> 平面 STEP 缩放切换数字', opacity, nodes, audio, mix: mixA ? { file: mixA.file, t: 0 } : null, stats: { ...stats, tracks: tracks.length },
+    visibility: '*_vis 节点 scale=1 显示 / 0 隐藏（STEP）；vox_* 节点消除时缩放到 0；label 下 *_num_<n> 平面 STEP 缩放切换数字', opacity: UEO.opacity, optimize: UEO.stats, poolVis: UEO.poolVis, nodes, audio, mix: mixA ? { file: mixA.file, t: 0 } : null, stats: { ...stats, tracks: tracks.length },
     voxelGrid: { W: L.W, H: L.H, D: L.D, size: r5(Wd.vs * PX), palette: L.palette },
   };
   const enc = new TextEncoder();
