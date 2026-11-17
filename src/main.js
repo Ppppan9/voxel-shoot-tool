@@ -955,3 +955,6 @@ window.__game = {
 
 buildPanel(); loadHand(); newGame();
 requestAnimationFrame(loop);
+
+import { installPanelUI } from './panel-ui.js';
+installPanelUI({ openKey: 'voxelShootTool.panelOpen.v1' });
