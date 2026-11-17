@@ -16,7 +16,35 @@ export const PX = 0.1;
 const r5 = x => Math.round(x * 1e5) / 1e5;
 const safe = s => s.replace(/[^A-Za-z0-9_]/g, '_');
 const easeOut = x => 1 - Math.pow(1 - Math.min(1, Math.max(0, x)), 3);
+
+async function maybeStripEmptyAnimations(glb) {
+  const u8 = glb instanceof ArrayBuffer ? new Uint8Array(glb) : new Uint8Array(glb);
+  const dv = new DataView(u8.buffer, u8.byteOffset, u8.byteLength);
+  if (dv.getUint32(0, true) !== 0x46546C67) return glb;
+  const jsonLen = dv.getUint32(12, true);
+  let json; try { json = JSON.parse(new TextDecoder().decode(u8.slice(20, 20 + jsonLen))); } catch { return glb; }
+  if (Array.isArray(json.animations) && json.animations.length > 0) return glb;
+  if ('animations' in json) delete json.animations;
+  const jsonBytes = new TextEncoder().encode(JSON.stringify(json));
+  const pad = (4 - (jsonBytes.length % 4)) % 4;
+  const padded = new Uint8Array(jsonBytes.length + pad);
+  padded.set(jsonBytes);
+  const binOff = 12 + 8 + jsonLen; // jsonLen already includes padding
+  const rest = u8.slice(binOff);
+  const out = new Uint8Array(20 + padded.length + rest.length);
+  const od = new DataView(out.buffer);
+  od.setUint32(0, 0x46546C67, true);
+  od.setUint32(4, 2, true);
+  od.setUint32(8, out.length, true);
+  od.setUint32(12, padded.length, true);
+  out[16] = 0x4a; out[17] = 0x53; out[18] = 0x4f; out[19] = 0x4e; // JSON
+  out.set(padded, 20);
+  out.set(rest, 20 + padded.length);
+  return out.buffer;
+}
+
 export async function export3D({ S, ae, rec, A, Wd }) {
+
   const fps = +S.export3dFps || 30, D = ae.timeline.meta.duration, NF = Math.round(D * fps);
   const files = ae.fileList, fileMap = new Map(files.map(f => [f.name, f.data]));
   const times = []; for (let f = 0; f <= NF; f++) times.push(r5(f / fps));
@@ -30,7 +58,31 @@ export async function export3D({ S, ae, rec, A, Wd }) {
   const voxG = new THREE.Group(); voxG.name = 'voxels'; root.add(voxG);
   const tracks = [], stats = { nodes: 0, voxels: 0, voxelsPopped: 0, shooters: 0, balls: 0, debris: 0, numbers: 0, quads: 0, meshes3d: 0, hand: 0 };
   function reduce(V, n) { const T2 = [], V2 = [], same = (i, j) => { for (let k = 0; k < n; k++) if (Math.abs(V[i * n + k] - V[j * n + k]) > 1e-6) return false; return true; }; for (let i = 0; i < times.length; i++) { if (i > 0 && i < times.length - 1 && same(i, i - 1) && same(i, i + 1)) continue; T2.push(times[i]); for (let k = 0; k < n; k++) V2.push(V[i * n + k]); } if (T2.length === 1) { T2.push(D); for (let k = 0; k < n; k++) V2.push(V2[k]); } return { T: T2, V: V2 }; }
-  function addTrack(name, prop, V, n, interp = THREE.InterpolateLinear, force = false) { const r = reduce(V, n); if (!force && r.T.length === 2 && r.V.slice(0, n).every((x, k) => Math.abs(x - r.V[n + k]) < 1e-9) && prop !== 'scale') return; const C = prop === 'quaternion' ? THREE.QuaternionKeyframeTrack : THREE.VectorKeyframeTrack; tracks.push(new C(name + '.' + prop, r.T, r.V, interp)); }
+  // GLTFExporter r160 drops the whole clip if any track contains NaN/Inf (min/max become null → thousands of ARRAY_TYPE_MISMATCH, animations=[]).
+  function sanitizeTrack(V, n, prop) {
+    const out = V.slice();
+    const fb = (i) => prop === 'scale' ? 1 : prop === 'quaternion' ? ((i % 4 === 3) ? 1 : 0) : 0;
+    for (let i = 0; i < out.length; i++) {
+      if (!Number.isFinite(+out[i])) {
+        let j = i - n; while (j >= 0 && !Number.isFinite(+out[j])) j -= n;
+        out[i] = j >= 0 ? out[j] : fb(i);
+      }
+    }
+    if (prop === 'quaternion') {
+      for (let i = 0; i + 3 < out.length; i += 4) {
+        const l = Math.hypot(out[i], out[i + 1], out[i + 2], out[i + 3]) || 1;
+        out[i] /= l; out[i + 1] /= l; out[i + 2] /= l; out[i + 3] /= l;
+      }
+    }
+    return out;
+  }
+  function addTrack(name, prop, V, n, interp = THREE.InterpolateLinear, force = false) {
+    const clean = sanitizeTrack(V, n, prop);
+    const r = reduce(clean, n);
+    if (!force && r.T.length === 2 && r.V.slice(0, n).every((x, k) => Math.abs(x - r.V[n + k]) < 1e-9) && prop !== 'scale') return;
+    const C = prop === 'quaternion' ? THREE.QuaternionKeyframeTrack : THREE.VectorKeyframeTrack;
+    tracks.push(new C(String(name || 'node').replace(/[^\w\u4e00-\u9fff]+/g, '_') + '.' + prop, r.T, r.V, interp));
+  }
   const nodes = [];
   // ---- 方块：与 AE 相同的集合（记录期间可见 / 被消除的方块），每个一个网格节点 ----
   { const popAt = new Map(ae.vox.pops.map(p => [p[0], p[1]])), set = S.aeVoxels === 'all' ? null : ae.vox.seen, popD = Math.max(1 / fps, (S.popDur || 110) / 1000), vg = geos(S).vox, mats = new Map();
@@ -58,6 +110,7 @@ export async function export3D({ S, ae, rec, A, Wd }) {
   }
   const anchorMat = new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false, name: 'mat_label_anchor' });
   for (const [id, r] of rec3) {
+    if (!r.vis.some(v => v)) continue; // never visible: omit (avoids NaN scale on unused pool objects and shrinks the clip)
     const vis = new THREE.Group(); vis.name = safe(id) + '_vis'; dyn.add(vis); vis.add(r.obj); r.obj.visible = true;
     const vv = []; r.vis.forEach(v => vv.push(v, v, v)); addTrack(vis.name, 'scale', vv, 3, THREE.InterpolateDiscrete);
     { let ui = 0; r.obj.traverse(c => { if (c === r.obj) return; if (!c.name) c.name = r.obj.name + '_n' + (ui++); else if (!c.name.startsWith(r.obj.name)) c.name = r.obj.name + '_' + c.name; }); }
@@ -97,8 +150,18 @@ export async function export3D({ S, ae, rec, A, Wd }) {
     nodes.push({ name: nm + '_q', node: nm, kind: g.id.split('_')[0], mode: 'hud', asset: key, in: r5(tin), out: r5(Math.min(D, tout)) });
   });
   const scn = new THREE.Scene(); scn.name = 'voxel_scene'; scn.add(root);
-  const clip = new THREE.AnimationClip('voxel_shoot', D, tracks);
-  const glb = await new GLTFExporter().parseAsync(scn, { binary: true, animations: [clip], onlyVisible: false, trs: true });
+  // Names with dots (e.g. Blender-style child 'mesh.001') make PropertyBinding.parseTrackName fail;
+  // GLTFExporter then return-nulls the whole clip → animations=[] + leftover NaN accessors.
+  const nodeName = s => String(s || 'node').replace(/[^\w\u4e00-\u9fff]+/g, '_') || 'node';
+  scn.traverse(o => { o.name = nodeName(o.name); });
+  const clipTracks = tracks.filter(tr => tr && tr.times && tr.values && tr.values.every(Number.isFinite));
+
+  const clip = new THREE.AnimationClip('voxel_shoot', D, clipTracks);
+  let glb = await new GLTFExporter().parseAsync(scn, { binary: true, animations: clipTracks.length ? [clip] : [], onlyVisible: false, trs: true });
+
+
+  // If exporter still dropped the clip, keep a valid glb (no empty animations array) — should not happen after sanitize.
+  glb = await maybeStripEmptyAnimations(glb);
   const tl = ae.timeline, assetById = new Map(tl.assets.map(a => [a.id, a])), sfxC = tl.comps.find(c => c.id === 'sfx'), mixA = tl.assets.find(a => a.id === 'mix');
   const audio = []; if (sfxC) for (const l of sfxC.layers) { const a = assetById.get(l.src.asset); if (a) audio.push({ file: a.file, t: l.start || 0, name: l.name }); }
   const scene3d = {
