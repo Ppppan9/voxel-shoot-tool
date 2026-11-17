@@ -45,10 +45,25 @@ async function maybeStripEmptyAnimations(glb) {
 
 export async function export3D({ S, ae, rec, A, Wd }) {
 
-  const fps = +S.export3dFps || 30, D = ae.timeline.meta.duration, NF = Math.round(D * fps);
+  const fps = +S.export3dFps || 30;
   const files = ae.fileList, fileMap = new Map(files.map(f => [f.name, f.data]));
-  const times = []; for (let f = 0; f <= NF; f++) times.push(r5(f / fps));
-  const segs = ae.segs.filter(g => !(g.id === 'hand' && S.export3dHand === false));
+  const segs = (ae.segs || []).filter(g => !(g.id === 'hand' && S.export3dHand === false));
+  let tMin = Infinity, tMax = -Infinity;
+  for (const g of segs) {
+    const s = g.s; if (!s || !s.length) continue;
+    tMin = Math.min(tMin, s[0][0]); tMax = Math.max(tMax, s[s.length - 1][0]);
+  }
+  let D = +((ae.timeline && ae.timeline.meta && ae.timeline.meta.duration) || 0);
+  if (!Number.isFinite(tMin) || tMax < tMin) { tMin = 0; if (!Number.isFinite(D) || D <= 0) D = 1 / fps; }
+  else {
+    const content = tMax - tMin;
+    // Clock jump: samples live in a late window (e.g. 299–303s) with empty lead-in — bake only the content.
+    if (tMin > 1 && tMin > content * 0.5) { D = Math.max(content, 1 / fps); }
+    else { tMin = 0; if (!Number.isFinite(D) || D < tMax) D = tMax + 1 / fps; }
+  }
+  if (D > 180) D = 180;
+  const NF = Math.round(D * fps);
+  const times = []; for (let f = 0; f <= NF; f++) times.push(r5(tMin + f / fps));
   const L = rec.L;
   // ---- 3D 部分：页面同一套模型（exportMode：方块逐个节点）----
   const R = create3D({ exportMode: true }); R.setup(S, L, Wd);
@@ -57,7 +72,7 @@ export async function export3D({ S, ae, rec, A, Wd }) {
   const dyn = new THREE.Group(); dyn.name = 'dynamic_3d'; root.add(dyn);
   const voxG = new THREE.Group(); voxG.name = 'voxels'; root.add(voxG);
   const tracks = [], stats = { nodes: 0, voxels: 0, voxelsPopped: 0, shooters: 0, balls: 0, debris: 0, numbers: 0, quads: 0, meshes3d: 0, hand: 0 };
-  function reduce(V, n) { const T2 = [], V2 = [], same = (i, j) => { for (let k = 0; k < n; k++) if (Math.abs(V[i * n + k] - V[j * n + k]) > 1e-6) return false; return true; }; for (let i = 0; i < times.length; i++) { if (i > 0 && i < times.length - 1 && same(i, i - 1) && same(i, i + 1)) continue; T2.push(times[i]); for (let k = 0; k < n; k++) V2.push(V[i * n + k]); } if (T2.length === 1) { T2.push(D); for (let k = 0; k < n; k++) V2.push(V2[k]); } return { T: T2, V: V2 }; }
+  function reduce(V, n) { const T2 = [], V2 = [], same = (i, j) => { for (let k = 0; k < n; k++) if (Math.abs(V[i * n + k] - V[j * n + k]) > 1e-6) return false; return true; }; for (let i = 0; i < times.length; i++) { if (i > 0 && i < times.length - 1 && same(i, i - 1) && same(i, i + 1)) continue; T2.push(times[i]); for (let k = 0; k < n; k++) V2.push(V[i * n + k]); } if (T2.length === 1) { T2.push(times[times.length - 1]); for (let k = 0; k < n; k++) V2.push(V2[k]); } return { T: T2, V: V2 }; }
   // GLTFExporter r160 drops the whole clip if any track contains NaN/Inf (min/max become null → thousands of ARRAY_TYPE_MISMATCH, animations=[]).
   function sanitizeTrack(V, n, prop) {
     const out = V.slice();
@@ -97,24 +112,32 @@ export async function export3D({ S, ae, rec, A, Wd }) {
   // ---- 动态 3D 元素（炮台 / 小球 / 碎屑）：逐帧 apply 页面同一套对象 ----
   const rec3 = new Map(), numMat = new Map(), numGeo = new THREE.PlaneGeometry(1.9, 0.95);
   const numPlane = (lab, n) => { let c = lab.userData.planes || (lab.userData.planes = new Map()); if (!c.has(n)) { if (!numMat.has(n)) numMat.set(n, new THREE.MeshBasicMaterial({ map: numberTexture(n), transparent: true, depthWrite: false, name: 'mat_num_' + n })); const q = new THREE.Mesh(numGeo, numMat.get(n)); q.name = lab.parent.name + '_num_' + n; q.userData.init = 0; q.scale.setScalar(0); lab.add(q); c.set(n, q); stats.numbers++; } return c.get(n); };
+  const childCache = new WeakMap();
+  const childrenOf = obj => {
+    let a = childCache.get(obj);
+    if (!a) { a = [obj]; obj.traverse(c => { if (c !== obj) a.push(c); }); childCache.set(obj, a); }
+    return a;
+  };
   for (let f = 0; f <= NF; f++) {
     const items = itemsAt(segs, times[f], fps);
     R.apply(items, S);
     for (const [id, o] of R.pool) {
-      let r = rec3.get(id); if (!r) { r = { obj: o.obj, vis: new Array(f).fill(0), tr: new Map() }; rec3.set(id, r); o.obj.name = safe(id); }
+      // exportMode never evicts unused pool objects; skip ones that have not appeared yet
+      if (!o.used && !rec3.has(id)) continue;
+      let r = rec3.get(id); if (!r) { r = { obj: o.obj, vis: new Array(f).fill(0), tr: new Map() }; rec3.set(id, r); o.obj.name = 'dyn_' + safe(id); }
       r.vis.push(o.used ? 1 : 0);
       const lab = o.obj.userData.label; if (lab) { const n = lab.userData.n; if (o.used && n != null) numPlane(lab, n); if (lab.userData.planes) for (const [m, q] of lab.userData.planes) q.scale.setScalar(o.used && lab.visible && m === n ? 1 : 0); }
-      const nodes2 = [o.obj]; o.obj.traverse(c => { if (c !== o.obj) nodes2.push(c); });
-      for (const n of nodes2) { let t = r.tr.get(n); if (!t) { t = { p: [], q: [], s: [] }; for (let k = 0; k < f; k++) { t.p.push(...n.position.toArray()); t.q.push(...n.quaternion.toArray()); if (n.userData.init != null) t.s.push(0, 0, 0); else t.s.push(...n.scale.toArray()); } r.tr.set(n, t); } t.p.push(...n.position.toArray()); t.q.push(...n.quaternion.toArray()); t.s.push(...n.scale.toArray()); }
+      for (const n of childrenOf(o.obj)) { let t = r.tr.get(n); if (!t) { t = { p: [], q: [], s: [] }; for (let k = 0; k < f; k++) { t.p.push(...n.position.toArray()); t.q.push(...n.quaternion.toArray()); if (n.userData.init != null) t.s.push(0, 0, 0); else t.s.push(...n.scale.toArray()); } r.tr.set(n, t); } t.p.push(...n.position.toArray()); t.q.push(...n.quaternion.toArray()); t.s.push(...n.scale.toArray()); }
     }
+    if (f % 8 === 7) await new Promise(res => setTimeout(res, 0));
   }
   const anchorMat = new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false, name: 'mat_label_anchor' });
   for (const [id, r] of rec3) {
     if (!r.vis.some(v => v)) continue; // never visible: omit (avoids NaN scale on unused pool objects and shrinks the clip)
-    const vis = new THREE.Group(); vis.name = safe(id) + '_vis'; dyn.add(vis); vis.add(r.obj); r.obj.visible = true;
+    const vis = new THREE.Group(); vis.name = 'dyn_' + safe(id) + '_vis'; dyn.add(vis); vis.add(r.obj); r.obj.visible = true; r.obj.name = 'dyn_' + safe(id);
+    { let ui = 0; r.obj.traverse(c => { if (c === r.obj) return; c.name = r.obj.name + '_' + (c.name || ('n' + (ui++))); }); }
     const vv = []; r.vis.forEach(v => vv.push(v, v, v)); addTrack(vis.name, 'scale', vv, 3, THREE.InterpolateDiscrete);
-    { let ui = 0; r.obj.traverse(c => { if (c === r.obj) return; if (!c.name) c.name = r.obj.name + '_n' + (ui++); else if (!c.name.startsWith(r.obj.name)) c.name = r.obj.name + '_' + c.name; }); }
-    for (const [n, t] of r.tr) { if (!n.name) n.name = safe(id); const interp = n.userData.init != null ? THREE.InterpolateDiscrete : THREE.InterpolateLinear; addTrack(n.name, 'position', t.p, 3); addTrack(n.name, 'quaternion', t.q, 4); addTrack(n.name, 'scale', t.s, 3, interp); }
+    for (const [n, trk] of r.tr) { if (!n.name) n.name = r.obj.name; const interp = n.userData.init != null ? THREE.InterpolateDiscrete : THREE.InterpolateLinear; addTrack(n.name, 'position', trk.p, 3); addTrack(n.name, 'quaternion', trk.q, 4); addTrack(n.name, 'scale', trk.s, 3, interp); }
     const lab = r.obj.userData.label; if (lab) { lab.material = anchorMat; lab.visible = true; }
     r.obj.traverse(c => { if (c.isMesh && c.material && c.material.name !== 'mat_label_anchor' && !c.material.name.startsWith('mat_num_')) stats.meshes3d++; });
     const fi = r.vis.indexOf(1), la = r.vis.lastIndexOf(1), kind = id.split('_')[0];
@@ -142,7 +165,7 @@ export async function export3D({ S, ae, rec, A, Wd }) {
     const vis = new THREE.Group(); vis.name = nm + '_vis'; cam.add(vis); const node = new THREE.Group(); node.name = nm; vis.add(node); const q = new THREE.Mesh(geo, m); q.name = nm + '_q'; node.add(q); stats.quads++;
     let j = 0; const at = t => { while (j < s.length - 2 && s[j + 1][0] <= t) j++; if (t < s[j][0]) j = 0; const p = s[j], q2 = s[j + 1] || p, u = q2[0] > p[0] ? Math.min(1, Math.max(0, (t - p[0]) / (q2[0] - p[0]))) : 0; return p.map((x, i) => x + (q2[i] - x) * u); };
     const pv = [], sv = [], qv = [], vv = [], op = [], qq = new THREE.Quaternion(), ax = new THREE.Vector3(0, 0, 1);
-    times.forEach(t => { const e = at(Math.min(Math.max(t, tin), s[s.length - 1][0])), on = t >= tin - 1e-6 && t < tout - 1e-6 ? 1 : 0; pv.push((e[1] - DW / 2) * pxs, (DH / 2 - e[2]) * pxs, -d); sv.push(e[3] * pxs, e[4] * pxs, 1); qq.setFromAxisAngle(ax, -e[5]); qv.push(qq.x, qq.y, qq.z, qq.w); vv.push(on, on, on); op.push(Math.round(e[6] * 1000) / 1000); });
+    times.forEach(t => { const e = at(Math.min(Math.max(t, tin), s[s.length - 1][0])), on = t >= tin - 1e-6 && t < tout - 1e-6 ? 1 : 0; const sx = Number.isFinite(+e[3]) ? e[3] * pxs : 1, sy = Number.isFinite(+e[4]) ? e[4] * pxs : 1; pv.push((e[1] - DW / 2) * pxs, (DH / 2 - e[2]) * pxs, -d); sv.push(sx, sy, 1); qq.setFromAxisAngle(ax, Number.isFinite(+e[5]) ? -e[5] : 0); qv.push(qq.x, qq.y, qq.z, qq.w); vv.push(on, on, on); op.push(Math.round((Number.isFinite(+e[6]) ? e[6] : 1) * 1000) / 1000); });
     addTrack(nm, 'position', pv, 3, undefined, true); addTrack(nm, 'scale', sv, 3, undefined, true); if (s.some(e => e[5])) addTrack(nm, 'quaternion', qv, 4); addTrack(vis.name, 'scale', vv, 3, THREE.InterpolateDiscrete, true);
     node.position.fromArray(pv, 0); node.scale.fromArray(sv, 0);
     if (opVar) { const r = reduce(op, 1); opacity[nm + '_q'] = r.T.map((t, i) => [t, r.V[i]]); }
@@ -153,9 +176,21 @@ export async function export3D({ S, ae, rec, A, Wd }) {
   // Names with dots (e.g. Blender-style child 'mesh.001') make PropertyBinding.parseTrackName fail;
   // GLTFExporter then return-nulls the whole clip → animations=[] + leftover NaN accessors.
   const nodeName = s => String(s || 'node').replace(/[^\w\u4e00-\u9fff]+/g, '_') || 'node';
-  scn.traverse(o => { o.name = nodeName(o.name); });
-  const clipTracks = tracks.filter(tr => tr && tr.times && tr.values && tr.values.every(Number.isFinite));
+  const usedN = new Set();
+  scn.traverse(o => {
+    let n = nodeName(o.name);
+    if (!n || usedN.has(n)) { let i = 2; const base = n || 'node'; while (usedN.has(base + '_' + i)) i++; n = (n && !usedN.has(n)) ? n : base + '_' + i; }
+    o.name = n; usedN.add(n);
+  });
+  const trackNode = tr => String(tr.name || '').replace(/\.(position|quaternion|scale)$/, '');
+  const clipTracks = tracks.filter(tr => tr && tr.times && tr.values && tr.values.every(Number.isFinite) && usedN.has(trackNode(tr)));
 
+  scn.traverse(o => {
+    const p = o.position, s = o.scale, q = o.quaternion;
+    if (!Number.isFinite(p.x) || !Number.isFinite(p.y) || !Number.isFinite(p.z)) p.set(Number.isFinite(p.x)?p.x:0, Number.isFinite(p.y)?p.y:0, Number.isFinite(p.z)?p.z:0);
+    if (!Number.isFinite(s.x) || !Number.isFinite(s.y) || !Number.isFinite(s.z)) s.set(Number.isFinite(s.x)?s.x:1, Number.isFinite(s.y)?s.y:1, Number.isFinite(s.z)?s.z:1);
+    if (![q.x, q.y, q.z, q.w].every(Number.isFinite)) q.set(0, 0, 0, 1);
+  });
   const clip = new THREE.AnimationClip('voxel_shoot', D, clipTracks);
   let glb = await new GLTFExporter().parseAsync(scn, { binary: true, animations: clipTracks.length ? [clip] : [], onlyVisible: false, trs: true });
 

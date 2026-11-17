@@ -32,6 +32,11 @@ export function createAERecorder(api) {
     if (!R) return;
     const E = api.env(); if (E.L !== R.L) { R = null; return; }
     R.A = E.A;
+    // If the clock jumps (tests set __vclock after 开始记录, or now() switches from wall to virtual),
+    // rebase t0 so elapsed time stays continuous. Otherwise lastT becomes hundreds of seconds and 3D/AE bake hangs.
+    const elapsedMs = now - R.t0, expectedMs = R.lastT * 1000;
+    if (R.frames === 0 && elapsedMs > 2000) R.t0 = now;
+    else if (R.frames > 0 && Math.abs(elapsedMs - expectedMs) > 2000) R.t0 = now - expectedMs;
     const t = Math.max(R.lastT + 1e-4 * (R.frames > 0), (now - R.t0) / 1000), f = R.frames;
     // 方块：记录期间出现在渲染列表里的方块（外露 + 内侧一层）+ 消除时刻
     if (E.voxBase && E.voxBase !== R.lastVB) { R.lastVB = E.voxBase; for (const l of E.voxBase) for (const [n] of l) R.seenVox.add(n); }
